@@ -1,0 +1,92 @@
+# Environment files
+.env
+.env.local
+.env.development
+.env.staging
+.env.production
+rule.instructions.md
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Data files (add specific patterns as needed)
+data/raw/**/*.csv
+data/raw/**/*.json
+data/raw/**/*.parquet
+!data/raw/**/*.gitkeep
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Airflow
+airflow.cfg
+airflow.db
+dags/__pycache__/
+logs/
+
+# Spark
+spark-warehouse/
+*.jar
+
+# Documentation build
+docs/_build/
+*.pdf
+
+.cursor/
+
+.serena/
