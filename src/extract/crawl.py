@@ -1,11 +1,18 @@
 import asyncio
-import csv
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-
 import nodriver as uc
-from typing import List
+from utils import (
+    extract_value_from_specs,
+    text_from_selector,
+    extract_value_from_project_card,
+    extract_value_from_post_card,
+    save_results_to_csv,
+    wait_for_selector
+)
+from typing import Optional
+from nodriver.core.connection import ProtocolException
 
 # Thiết lập logging
 logging.basicConfig(
@@ -21,29 +28,75 @@ RAW_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "raw"
 
 
 async def extract_subpage_urls(page):
-    subpage_elements = await page.select_all("a.js__product-link-for-product-id")
+    # Sử dụng JavaScript để lấy tất cả các phần tử a có class js__product-link-for-product-id
+    js_code = """
+    Array.from(document.querySelectorAll('a.js__product-link-for-product-id'))
+         .map(element => element.href)
+         .filter(href => href && href !== '');
+    """
+    href_list = await page.evaluate(js_code)
+    
+    # Lọc các URL tương đối và chuyển đổi thành URL tuyệt đối nếu cần
     subpage_urls = []
-    for element in subpage_elements:
-        href = await element.get_attribute("href")
-        if href:
+    for href in href_list:
+        href = href.get("value")
+        if href.startswith('/'):  # Nếu là URL tương đối
             subpage_urls.append(BASE_URL + href)
+        elif href.startswith(BASE_URL):  # Nếu là URL tuyệt đối và bắt đầu với BASE_URL
+            subpage_urls.append(href)
+    
     return subpage_urls
 
+
 async def extract_data_from_page(page):
-    await page.get_content()
+    # Chờ phần chi tiết sản phẩm, nếu không có thì trả về item lỗi
+    container = await wait_for_selector(
+        page,
+        "#product-detail-web",
+        attempts=4,
+        delay=1.0,
+        log_label="#product-detail-web"
+    )
+    if not container:
+        logger.warning(f"Không tìm thấy container chi tiết tại {page.url}")
+        return {
+            "url": page.url,
+            "source": "batdongsan.com.vn",
+            "error": "missing_product_detail_container"
+        }
+
+    item = {}
+
+    item['title'] = await text_from_selector(page, "h1[class='re__pr-title pr-title js__pr-title']") or ""
+    item['address'] = await text_from_selector(page, "span[class='re__pr-short-description js__pr-address']") or ""
+
+    item['price'] = await extract_value_from_specs(page, "Khoảng giá")
+    item['area'] = await extract_value_from_specs(page, "Diện tích")
+    item['house_direction'] = await extract_value_from_specs(page, "Hướng nhà")
+    item['balcony_direction'] = await extract_value_from_specs(page, "Hướng ban công")
+    item['facade'] = await extract_value_from_specs(page, "Mặt tiền")
+    item['legal'] = await extract_value_from_specs(page, "Pháp lý")
+    item['furniture'] = await extract_value_from_specs(page, "Nội thất")
+    item['number_bedroom'] = await extract_value_from_specs(page, "Số phòng ngủ")
+    item['number_bathroom'] = await extract_value_from_specs(page, "Số phòng tắm, vệ sinh")
+    item['number_floor'] = await extract_value_from_specs(page, "Số tầng")
+    item['way_in'] = await extract_value_from_specs(page, "Đường vào")
+
+    item['project_name'] = await text_from_selector(page, "div[class='re__project-title']") or ""
+    item['project_status'] = await extract_value_from_project_card(page, "re__icon-info-circle--sm")
+    item['project_investor'] = await extract_value_from_project_card(page, "re__icon-office--sm")
+
+    item['post_id'] = await extract_value_from_post_card(page, "Mã tin")
+    item['post_start_time'] = await extract_value_from_post_card(page, "Ngày đăng")
+    item['post_end_time'] = await extract_value_from_post_card(page, "Ngày hết hạn")
+    item['post_type'] = await extract_value_from_post_card(page, "Loại tin")
+
+    item["source"] = "batdongsan.com.vn"
+    item["url"] = page.url
+    item["crawled_at"] = datetime.now(timezone.utc).isoformat()
+
+    return item
     
-    # Tổng quan bất động sản
-    ## Tên bất động sản
-    title_element = await page.query_selector("h1[class='cre__pr-title pr-title js__pr-title']")
-    title = title_element.text_content()
-    
-    # Địa chỉ bất động sản
-    address_element = await page.query_selector("span[class='pre__pr-short-description js__pr-address']")
-    address = address_element.text_content()
-    
-    # Chi tiết bất động sản
-    ## Khoảng giá
-    price_element = await page.query_selector("span[class='cre__pr-price-text js__pr-price-text']")
 
 async def scrape_subpage(url: str, subpage_semaphore: asyncio.Semaphore, browser):
     """
@@ -51,18 +104,47 @@ async def scrape_subpage(url: str, subpage_semaphore: asyncio.Semaphore, browser
     """
     async with subpage_semaphore:  # Giới hạn 10 subpage đồng thời cho mỗi main page
         logger.info(f"  Đang xử lý subpage: {url}")
-        
-        # Mở tab mới cho subpage
-        subpage = await browser.get(url, new_tab=True)
-        
-        # Thực hiện cào dữ liệu từ subpage
-        data = await extract_data_from_page(subpage)
-        
-        # Đóng tab subpage
-        await subpage.close()
-        
+        item: Optional[dict] = None
+        subpage = None
+        try:
+            subpage = await browser.get(url, new_tab=True)
+            try:
+                item = await extract_data_from_page(subpage)
+            except ProtocolException as proto_error:
+                logger.warning(f"ProtocolException tại {url}: {proto_error}. Thử reload...")
+                try:
+                    await subpage.reload(wait_until="networkIdle")
+                    item = await extract_data_from_page(subpage)
+                except Exception as retry_error:
+                    logger.warning(f"Reload vẫn lỗi với {url}: {retry_error}")
+                    item = {
+                        "url": url,
+                        "source": "batdongsan.com.vn",
+                        "error": "protocol_exception"
+                    }
+            except Exception as error:
+                logger.warning(f"Lỗi không mong đợi tại {url}: {error}")
+                item = {
+                    "url": url,
+                    "source": "batdongsan.com.vn",
+                    "error": "unexpected_exception"
+                }
+        finally:
+            if subpage:
+                try:
+                    await subpage.close()
+                except Exception as close_error:
+                    logger.debug(f"Không thể đóng subpage {url}: {close_error}")
+
+        if not item:
+            item = {
+                "url": url,
+                "source": "batdongsan.com.vn",
+                "error": "empty_item"
+            }
+
         logger.info(f"  Đã hoàn thành subpage: {url}")
-        return data
+        return item
 
 async def scrape_main_page(url: str, page_semaphore: asyncio.Semaphore, subpage_semaphore: asyncio.Semaphore):
     """
@@ -71,11 +153,41 @@ async def scrape_main_page(url: str, page_semaphore: asyncio.Semaphore, subpage_
     async with page_semaphore:  # Giữ một slot trong 4 slot cho phép
         logger.info(f"Đang xử lý main page: {url}")
         
-        # Khởi tạo browser và mở page
-        browser = await uc.start(headless=True)
+        # Khởi tạo browser và mở page với các tùy chọn chống phát hiện
+        browser = await uc.start(
+            headless=True,
+            browser_args=[
+                '--no-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-blink-features=AutomationControlled',
+                '--disable-extensions',
+                '--disable-plugins',
+                '--window-size=1366,768',
+                '--lang=vi-VN',
+                '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            ]
+        )
         page = await browser.get(url)
         
-        await page.get_content()
+        # Thêm đoạn mã giả mạo các thuộc tính đặc trưng của bot
+        await page.evaluate(
+            """
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined,
+            });
+            Object.defineProperty(navigator, 'plugins', {
+                get: () => [1, 2, 3, 4, 5],
+            });
+            Object.defineProperty(navigator, 'languages', {
+                get: () => ['vi-VN', 'vi', 'en-US', 'en'],
+            });
+            """
+        )
+        
+        # Chờ ngẫu nhiên để mô phỏng hành vi người dùng thật
+        await asyncio.sleep(2)
+
+        await asyncio.sleep(5)
         
         # Lấy danh sách subpage từ main page này
         subpage_urls = await extract_subpage_urls(page)
@@ -88,17 +200,27 @@ async def scrape_main_page(url: str, page_semaphore: asyncio.Semaphore, subpage_
             for subpage_url in subpage_urls:
                 task = scrape_subpage(subpage_url, subpage_semaphore, browser)
                 subpage_tasks.append(task)
-            
-            # Chờ tất cả subpage hoàn thành
-            subpage_results = await asyncio.gather(*subpage_tasks)
+            subpage_results_raw = await asyncio.gather(*subpage_tasks, return_exceptions=True)
+
+            subpage_results = []
+            for result in subpage_results_raw:
+                if isinstance(result, Exception):
+                    logger.warning(f"Subpage task exception: {result}")
+                    subpage_results.append({
+                        "url": url,
+                        "source": "batdongsan.com.vn",
+                        "error": "subpage_task_exception"
+                    })
+                else:
+                    subpage_results.append(result)
         else:
             subpage_results = []
         
         # Đóng browser khi hoàn thành
-        await browser.stop()
+        browser.stop()
         
-        logger.info(f"Đã hoàn thành main page: {url} với {len(subpage_results)} subpage")
-        return {
+    logger.info(f"Đã hoàn thành main page: {url} với {len(subpage_results)} subpage")
+    return {
             "main_page_url": url,
             "subpage_count": len(subpage_results),
             "subpage_data": subpage_results
@@ -126,50 +248,25 @@ async def main():
     for url in main_urls:
         task = scrape_main_page(url, page_semaphore, subpage_semaphore)
         tasks.append(task)
-    
+
     # Chạy tất cả các task với giới hạn 4 main page đồng thời
-    all_results = await asyncio.gather(*tasks)
+    all_results_raw = await asyncio.gather(*tasks, return_exceptions=True)
+    all_results = []
+    for result in all_results_raw:
+        if isinstance(result, Exception):
+            logger.warning(f"Main page task exception: {result}")
+        else:
+            all_results.append(result)
 
     logger.info(f"Đã hoàn thành cào dữ liệu từ {len(all_results)} main page")
 
+    
     save_results_to_csv(all_results)
 
     # Trả về kết quả (tùy chọn, có thể lưu vào file hoặc xử lý thêm)
     return all_results
 
 
-def save_results_to_csv(results):
-    RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    output_path = RAW_DATA_DIR / f"batdongsan_raw_{timestamp}.csv"
-
-    fieldnames = [
-        "main_page_url",
-        "subpage_url",
-        "title",
-        "content_length",
-    ]
-
-    rows = []
-    for main_page in results:
-        subpages = main_page.get("subpage_data", [])
-        for subpage in subpages:
-            rows.append(
-                {
-                    "main_page_url": main_page.get("main_page_url"),
-                    "subpage_url": subpage.get("url"),
-                    "title": subpage.get("title"),
-                    "content_length": subpage.get("content_length"),
-                }
-            )
-
-    with output_path.open("w", newline="", encoding="utf-8") as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
-
-    logger.info(f"Đã lưu dữ liệu raw vào: {output_path}")
 
 if __name__ == "__main__":
     # Sử dụng nodriver.loop() thay vì asyncio.run()
