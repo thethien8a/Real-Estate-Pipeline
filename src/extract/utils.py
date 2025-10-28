@@ -12,19 +12,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def wait_for_selector(page, selector: str, *, attempts: int = 3, delay: float = 1.0, log_label: Optional[str] = None):
-    label = log_label or selector
-    for attempt in range(1, attempts + 1):
-        try:
-            element = await page.query_selector(selector)
-            if element:
-                return element
-        except Exception as error:
-            logger.debug(f"Attempt {attempt} failed for selector '{label}': {error}")
-        if attempt < attempts:
-            await asyncio.sleep(delay)
-    logger.warning(f"Failed to locate selector '{label}' after {attempts} attempts")
-    return None
+# async def wait_for_selector(page, selector: str, *, attempts: int = 3, delay: float = 1.0, log_label: Optional[str] = None):
+#     label = log_label or selector
+#     for attempt in range(1, attempts + 1):
+#         try:
+#             element = await page.query_selector(selector)
+#             if element:
+#                 return element
+#         except Exception as error:
+#             logger.debug(f"Attempt {attempt} failed for selector '{label}': {error}")
+#         if attempt < attempts:
+#             await asyncio.sleep(delay)
+#     logger.warning(f"Failed to locate selector '{label}' after {attempts} attempts")
+#     return None
 
 
 def text_from_element(element) -> Optional[str]:
@@ -44,16 +44,21 @@ def text_from_element(element) -> Optional[str]:
 
 
 async def text_from_selector(page, selector: str, attempts: int = 3, delay: float = 0.5) -> Optional[str]:
-    element = await wait_for_selector(page, selector, attempts=attempts, delay=delay)
+    # element = await wait_for_selector(page, selector, attempts=attempts, delay=delay)
+    try:
+        element = await page.query_selector(selector)
+    except Exception as e:
+        logger.warning(f"Not found selector '{selector}': {e} for page {page.url}")
+        return None
     return text_from_element(element)
 
 
 async def extract_value_from_specs(page, label: str, default: str = "") -> str:
-    await wait_for_selector(page, "div.re__pr-specs-content-item")
+    # await wait_for_selector(page, "div.re__pr-specs-content-item")
     try:
         spec_items = await page.select_all("div.re__pr-specs-content-item")
     except Exception as e:
-        logger.warning(f"Cannot load specs section for '{label}': {e}")
+        logger.warning(f"Not found specs section for '{label}': {e} for page {page.url}")
         return default
 
     for item in spec_items:
@@ -72,11 +77,11 @@ async def extract_value_from_specs(page, label: str, default: str = "") -> str:
 
 
 async def extract_value_from_project_card(page, icon_class: str, default: str = "") -> str:
-    await wait_for_selector(page, "span.re__prj-card-config-value")
+    # await wait_for_selector(page, "span.re__prj-card-config-value")
     try:
         items = await page.select_all("span.re__prj-card-config-value")
     except Exception as e:
-        logger.warning(f"Cannot load project card items '{icon_class}': {e}")
+        logger.warning(f"Cannot load project card items '{icon_class}': {e} for page {page.url}")
         return default
 
     for item in items:
@@ -94,11 +99,11 @@ async def extract_value_from_project_card(page, icon_class: str, default: str = 
 
 
 async def extract_value_from_post_card(page, label: str, default: str = "") -> str:
-    await wait_for_selector(page, "div.re__pr-short-info-item.js__pr-config-item")
+    # await wait_for_selector(page, "div.re__pr-short-info-item.js__pr-config-item")
     try:
         items = await page.select_all("div.re__pr-short-info-item.js__pr-config-item")
     except Exception as e:
-        logger.warning(f"Cannot load post card items '{label}': {e}")
+        logger.warning(f"Not found post card items '{label}': {e} for page {page.url}")
         return default
 
     for item in items:
@@ -187,3 +192,14 @@ def save_results_to_csv(results):
         writer.writerows(rows)
 
     logger.info(f"Đã lưu dữ liệu raw vào: {output_path}")
+    
+    
+async def reload_page(page, reload_times: int =3):
+    for i in range(reload_times):
+        try:
+            await page.wait_for("div.re__main-content", timeout=10000)
+            return True
+        except Exception as e:
+            await page.reload()
+            logger.warning(f"Cannot reload page: {e} for page {page.url}")
+    return False

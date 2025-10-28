@@ -9,7 +9,7 @@ from utils import (
     extract_value_from_project_card,
     extract_value_from_post_card,
     save_results_to_csv,
-    wait_for_selector
+    reload_page,
 )
 from typing import Optional
 from nodriver.core.connection import ProtocolException
@@ -49,26 +49,19 @@ async def extract_subpage_urls(page):
 
 
 async def extract_data_from_page(page):
-    # Chờ phần chi tiết sản phẩm, nếu không có thì trả về item lỗi
-    container = await wait_for_selector(
-        page,
-        "#product-detail-web",
-        attempts=4,
-        delay=1.0,
-        log_label="#product-detail-web"
-    )
-    if not container:
-        logger.warning(f"Không tìm thấy container chi tiết tại {page.url}")
+    
+    # Nếu reload không thành công
+    if not await reload_page(page, reload_times=3):
         return {
             "url": page.url,
             "source": "batdongsan.com.vn",
-            "error": "missing_product_detail_container"
+            "error": "cannot_reload_page"
         }
-
+    
     item = {}
 
-    item['title'] = await text_from_selector(page, "h1[class='re__pr-title pr-title js__pr-title']") or ""
-    item['address'] = await text_from_selector(page, "span[class='re__pr-short-description js__pr-address']") or ""
+    item['title'] = await text_from_selector(page, "h1[class='re__pr-title pr-title js__pr-title']")
+    item['address'] = await text_from_selector(page, "span[class='re__pr-short-description js__pr-address']")
 
     item['price'] = await extract_value_from_specs(page, "Khoảng giá")
     item['area'] = await extract_value_from_specs(page, "Diện tích")
@@ -82,7 +75,7 @@ async def extract_data_from_page(page):
     item['number_floor'] = await extract_value_from_specs(page, "Số tầng")
     item['way_in'] = await extract_value_from_specs(page, "Đường vào")
 
-    item['project_name'] = await text_from_selector(page, "div[class='re__project-title']") or ""
+    item['project_name'] = await text_from_selector(page, "div[class='re__project-title']")
     item['project_status'] = await extract_value_from_project_card(page, "re__icon-info-circle--sm")
     item['project_investor'] = await extract_value_from_project_card(page, "re__icon-office--sm")
 
@@ -113,7 +106,8 @@ async def scrape_subpage(url: str, subpage_semaphore: asyncio.Semaphore, browser
             except ProtocolException as proto_error:
                 logger.warning(f"ProtocolException tại {url}: {proto_error}. Thử reload...")
                 try:
-                    await subpage.reload(wait_until="networkIdle")
+                    await subpage.reload()
+                    await asyncio.sleep(5)
                     item = await extract_data_from_page(subpage)
                 except Exception as retry_error:
                     logger.warning(f"Reload vẫn lỗi với {url}: {retry_error}")
@@ -271,7 +265,3 @@ async def main():
 if __name__ == "__main__":
     # Sử dụng nodriver.loop() thay vì asyncio.run()
     results = uc.loop().run_until_complete(main())
-    
-    # Ghi log một số thông tin tổng kết
-    total_subpages = sum(result['subpage_count'] for result in results)
-    logger.info(f"Tổng số subpage đã cào: {total_subpages}")
