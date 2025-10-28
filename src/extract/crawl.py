@@ -11,8 +11,11 @@ from utils import (
     save_results_to_csv,
     reload_page,
 )
+import os
 from typing import Optional
 from nodriver.core.connection import ProtocolException
+from config import get_page_semaphore, get_subpage_semaphore, CrawlConfig
+
 
 # Thiết lập logging
 logging.basicConfig(
@@ -226,14 +229,19 @@ async def main():
     """
     logger.info("Bắt đầu quá trình cào dữ liệu")
     
-    page_semaphore = asyncio.Semaphore(4)
-    # Semaphore cho subpage - giới hạn 10 subpage đồng thời cho mỗi main page
-    subpage_semaphore = asyncio.Semaphore(10)
+    # Giới hạn số page cào đồng thời
+    page_semaphore = get_page_semaphore()
     
-    # Số trang cần thu thập
-    end_page = 1
+    # Giới hạn số subpage cào đồng thời
+    subpage_semaphore = get_subpage_semaphore()
     
-    main_urls = [f"{BASE_URL}{START}p{i}" for i in range(1, end_page + 1)]
+    # Trang bắt đầu thu thập
+    start_page = CrawlConfig.START_PAGE
+    
+    # Trang kết thúc thu thập
+    end_page = CrawlConfig.END_PAGE
+    
+    main_urls = [f"{BASE_URL}{START}p{i}" for i in range(start_page, end_page + 1)]
     
     logger.info(f"Đang xử lý {len(main_urls)} main page: {main_urls}")
     
