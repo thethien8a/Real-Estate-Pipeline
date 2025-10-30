@@ -59,7 +59,7 @@ Chương trình cào dữ liệu bất động sản từ website batdongsan.com
 
 ### 1. Cài đặt dependencies
 ```bash
-pip install -r requirements.txt
+pip install -r requirements/requirements.txt
 ```
 
 ### 2. Chạy chương trình

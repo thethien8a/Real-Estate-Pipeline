@@ -194,12 +194,13 @@ def save_results_to_csv(results):
     logger.info(f"Đã lưu dữ liệu raw vào: {output_path}")
     
     
-async def reload_page(page, reload_times: int =3):
+async def reload_page(page, reload_times: int=2):
     for i in range(reload_times):
         try:
-            await page.wait_for("div.re__main-content", timeout=10000)
+
             return True
         except Exception as e:
             await page.reload()
+            await asyncio.sleep(2)
             logger.warning(f"Cannot reload page: {e} for page {page.url}")
     return False

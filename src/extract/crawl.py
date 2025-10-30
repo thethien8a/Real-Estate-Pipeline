@@ -9,9 +9,7 @@ from utils import (
     extract_value_from_project_card,
     extract_value_from_post_card,
     save_results_to_csv,
-    reload_page,
 )
-import os
 from typing import Optional
 from nodriver.core.connection import ProtocolException
 from config import get_page_semaphore, get_subpage_semaphore, CrawlConfig
@@ -53,13 +51,7 @@ async def extract_subpage_urls(page):
 
 async def extract_data_from_page(page):
     
-    # Nếu reload không thành công
-    if not await reload_page(page, reload_times=3):
-        return {
-            "url": page.url,
-            "source": "batdongsan.com.vn",
-            "error": "cannot_reload_page"
-        }
+    await page.reload()
     
     item = {}
 
