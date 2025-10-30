@@ -174,7 +174,6 @@ async def scrape_main_page(url: str, page_semaphore: asyncio.Semaphore, subpage_
         )
         
         # Chờ ngẫu nhiên để mô phỏng hành vi người dùng thật
-        await asyncio.sleep(2)
 
         await asyncio.sleep(5)
         

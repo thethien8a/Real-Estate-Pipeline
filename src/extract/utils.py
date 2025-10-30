@@ -186,7 +186,7 @@ def save_results_to_csv(results):
             }
             rows.append(row)
 
-    with output_path.open("w", newline="", encoding="utf-8") as csvfile:
+    with output_path.open("w", newline="", encoding="utf-8-sig") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
