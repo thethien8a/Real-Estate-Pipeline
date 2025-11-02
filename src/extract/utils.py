@@ -12,19 +12,100 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# async def wait_for_selector(page, selector: str, *, attempts: int = 3, delay: float = 1.0, log_label: Optional[str] = None):
-#     label = log_label or selector
-#     for attempt in range(1, attempts + 1):
-#         try:
-#             element = await page.query_selector(selector)
-#             if element:
-#                 return element
-#         except Exception as error:
-#             logger.debug(f"Attempt {attempt} failed for selector '{label}': {error}")
-#         if attempt < attempts:
-#             await asyncio.sleep(delay)
-#     logger.warning(f"Failed to locate selector '{label}' after {attempts} attempts")
-#     return None
+async def scroll_page_slowly(
+    page,
+    steps: int = 6,
+    step_distance: int = 600,
+    delay: float = 0.6,
+) -> None:
+    """Scroll xuống từ từ để kích hoạt lazy-loading cho đến hết trang."""
+
+    previous_height = 0
+    max_attempts = steps
+    attempt = 0
+    
+    while attempt < max_attempts:
+        try:
+            # Lấy chiều cao hiện tại của trang
+            current_height = await page.evaluate("document.body.scrollHeight")
+            
+            # Nếu chiều cao không thay đổi, nghĩa là đã đến cuối trang
+            if current_height == previous_height:
+                logger.debug("Reached end of page")
+                break
+            
+            previous_height = current_height
+            
+            # Scroll xuống
+            try:
+                await page.scroll_down(step_distance)
+            except Exception as scroll_error:
+                logger.debug(f"scroll_down fallback evaluate: {scroll_error}")
+                try:
+                    await page.evaluate(f"window.scrollBy(0, {step_distance});")
+                except Exception as eval_error:
+                    logger.debug(f"window.scrollBy failed: {eval_error}")
+                    break
+            
+            await asyncio.sleep(delay)
+            attempt += 1
+            
+        except Exception as error:
+            logger.debug(f"Error during scrolling: {error}")
+            break
+
+    try:
+        await page.evaluate("window.scrollTo(0, 0);")
+    except Exception as error:
+        logger.debug(f"Could not scroll back to top: {error}")
+
+
+
+async def wait_for_content_load(
+    page,
+    scroll_steps: int = 6,
+    scroll_delay: float = 0.6,
+) -> None:
+    """Đợi trang load hoàn toàn và kích hoạt lazy loading."""
+
+    try:
+        # Cuộn trang từ từ để kích hoạt lazy loading
+        await scroll_page_slowly(page, steps=scroll_steps, delay=scroll_delay)
+    except Exception as error:
+        logger.debug(f"scroll_page_slowly failed: {error}")
+
+    # Chờ cho phần tử có class 're__main-content' xuất hiện bằng JavaScript
+    try:
+        await page.evaluate("""
+            () => new Promise((resolve) => {
+                const element = document.querySelector('.re__main-content');
+                if (element) {
+                    resolve();
+                } else {
+                    const observer = new MutationObserver((mutations) => {
+                        mutations.forEach((mutation) => {
+                            mutation.addedNodes.forEach((node) => {
+                                if (node.nodeType === 1 && 
+                                    (node.classList && node.classList.contains('re__main-content')) ||
+                                    (node.querySelector && node.querySelector('.re__main-content'))) {
+                                    observer.disconnect();
+                                    resolve();
+                                }
+                            });
+                        });
+                    });
+                    observer.observe(document.body, {
+                        childList: true,
+                        subtree: true
+                    });
+                }
+            })
+        """, await_promise=True)
+    except Exception as error:
+        logger.debug(f"Waiting for re__main-content failed: {error}")
+
+    await asyncio.sleep(3.0)
+
 
 
 def text_from_element(element) -> Optional[str]:
@@ -43,80 +124,170 @@ def text_from_element(element) -> Optional[str]:
     return stripped or None
 
 
-async def text_from_selector(page, selector: str, attempts: int = 3, delay: float = 0.5) -> Optional[str]:
-    # element = await wait_for_selector(page, selector, attempts=attempts, delay=delay)
-    try:
-        element = await page.query_selector(selector)
-    except Exception as e:
-        logger.warning(f"Not found selector '{selector}': {e} for page {page.url}")
-        return None
-    return text_from_element(element)
+async def text_from_selector(page, selector: str, attempts: int = 3, delay: float = 3) -> Optional[str]:
+    """Cải thiện retry logic với delay"""
+    for attempt in range(attempts):
+        try:
+            element = await page.query_selector(selector)
+            if element:
+                text = element.text
+                if text:
+                    return text.strip()
+                else:
+                    await page.reload()
+        except Exception as e:
+            logger.debug(f"Attempt {attempt+1} failed for selector '{selector}': {e}")
+            await page.reload()
+        if attempt < attempts - 1:
+            await asyncio.sleep(delay)
+
+    logger.warning(f"Not found selector '{selector}' after {attempts} attempts for page {page.url}")
+    return None
 
 
 async def extract_value_from_specs(page, label: str, default: str = "") -> str:
-    # await wait_for_selector(page, "div.re__pr-specs-content-item")
+    """
+    Extract value from specs section using JavaScript to avoid CBOR stack limit errors.
+    This approach processes data in browser and returns only the needed value.
+    """
     try:
-        spec_items = await page.select_all("div.re__pr-specs-content-item")
+        # Build JavaScript code with embedded parameters
+        # nodriver only accepts JavaScript string, not function with parameters
+        # IMPORTANT: Must return string, not undefined/null to avoid RemoteObject
+        js_code = f"""
+        (function() {{
+            const label = {repr(label)};
+            const defaultValue = {repr(default)};
+            const specItems = document.querySelectorAll('div.re__pr-specs-content-item');
+            
+            for (const item of specItems) {{
+                const titleElement = item.querySelector('span.re__pr-specs-content-item-title');
+                if (titleElement) {{
+                    const titleText = titleElement.textContent.trim();
+                    if (titleText && titleText.toLowerCase().includes(label.toLowerCase())) {{
+                        const valueElement = item.querySelector('span.re__pr-specs-content-item-value');
+                        if (valueElement) {{
+                            const value = valueElement.textContent.trim();
+                            return value ? value : defaultValue;
+                        }}
+                    }}
+                }}
+            }}
+            
+            return defaultValue;
+        }})()
+        """
+        
+        result = await page.evaluate(js_code, return_by_value=True)
+        # Ensure we return string, not RemoteObject or None
+        if result is None or (hasattr(result, 'type_') and result.type_ == 'string'):
+            return default
+        return str(result) if result else default
+        
     except Exception as e:
         logger.warning(f"Not found specs section for '{label}': {e} for page {page.url}")
         return default
 
-    for item in spec_items:
-        try:
-            title_element = await item.query_selector("span.re__pr-specs-content-item-title")
-            title_text = text_from_element(title_element)
-            if title_text and label.lower() in title_text.lower():
-                value_element = await item.query_selector("span.re__pr-specs-content-item-value")
-                value_text = text_from_element(value_element)
-                return value_text or default
-        except Exception as inner_error:
-            logger.debug(f"Skip spec item for '{label}' due to error: {inner_error}")
-            continue
-
-    return default
-
 
 async def extract_value_from_project_card(page, icon_class: str, default: str = "") -> str:
-    # await wait_for_selector(page, "span.re__prj-card-config-value")
+    """
+    Extract value from project card using JavaScript to avoid CBOR stack limit errors.
+    """
     try:
-        items = await page.select_all("span.re__prj-card-config-value")
+        # Build JavaScript code with embedded parameters
+        # nodriver only accepts JavaScript string, not function with parameters
+        # IMPORTANT: Must return string, not undefined/null to avoid RemoteObject
+        js_code = f"""
+        (function() {{
+            const iconClass = {repr(icon_class)};
+            const defaultValue = {repr(default)};
+            const items = document.querySelectorAll('span.re__prj-card-config-value');
+            
+            for (const item of items) {{
+                const icon = item.querySelector('i.' + iconClass);
+                if (icon) {{
+                    const valueElement = item.querySelector('span.re__long-text');
+                    if (valueElement) {{
+                        const value = valueElement.textContent.trim();
+                        return value ? value : defaultValue;
+                    }}
+                }}
+            }}
+            
+            return defaultValue;
+        }})()
+        """
+        
+        result = await page.evaluate(js_code, return_by_value=True)
+        # Ensure we return string, not RemoteObject or None
+        if result is None or (hasattr(result, 'type_') and result.type_ == 'string'):
+            return default
+        return str(result) if result else default
+        
     except Exception as e:
         logger.warning(f"Cannot load project card items '{icon_class}': {e} for page {page.url}")
         return default
 
-    for item in items:
+
+async def extract_value_from_post_card(page, label: str, default: str = "", max_retries: int = 3) -> str:
+    """
+    Extract value from post card using JavaScript to avoid CBOR stack limit errors.
+    Includes retry logic for cases where value might load asynchronously.
+    """
+    for attempt in range(max_retries):
         try:
-            icon = await item.query_selector(f"i.{icon_class}")
-            if icon:
-                value_element = await item.query_selector("span.re__long-text")
-                value_text = text_from_element(value_element)
-                return value_text or default
-        except Exception as inner_error:
-            logger.debug(f"Skip project card item '{icon_class}' due to error: {inner_error}")
-            continue
-
-    return default
-
-
-async def extract_value_from_post_card(page, label: str, default: str = "") -> str:
-    # await wait_for_selector(page, "div.re__pr-short-info-item.js__pr-config-item")
-    try:
-        items = await page.select_all("div.re__pr-short-info-item.js__pr-config-item")
-    except Exception as e:
-        logger.warning(f"Not found post card items '{label}': {e} for page {page.url}")
-        return default
-
-    for item in items:
-        try:
-            title_element = await item.query_selector("span.title")
-            title_text = text_from_element(title_element)
-            if title_text and label.lower() in title_text.lower():
-                value_element = await item.query_selector("span.value")
-                value_text = text_from_element(value_element)
-                return value_text or default
-        except Exception as inner_error:
-            logger.debug(f"Skip post card item '{label}' due to error: {inner_error}")
-            continue
+            # Build JavaScript code with embedded parameters
+            # nodriver only accepts JavaScript string, not function with parameters
+            # IMPORTANT: Return empty string "" instead of null to avoid RemoteObject
+            js_code = f"""
+            (function() {{
+                const label = {repr(label)};
+                const items = document.querySelectorAll('div.re__pr-short-info-item.js__pr-config-item');
+                
+                for (const item of items) {{
+                    const titleElement = item.querySelector('span.title');
+                    if (titleElement) {{
+                        const titleText = titleElement.textContent.trim();
+                        if (titleText && titleText.toLowerCase().includes(label.toLowerCase())) {{
+                            const valueElement = item.querySelector('span.value');
+                            if (valueElement) {{
+                                const valueText = valueElement.textContent.trim();
+                                if (valueText) {{
+                                    return valueText;
+                                }}
+                            }}
+                        }}
+                    }}
+                }}
+                
+                return ""; // Return empty string instead of null to avoid RemoteObject
+            }})()
+            """
+            
+            result = await page.evaluate(js_code, return_by_value=True)
+            
+            # Ensure we handle RemoteObject properly
+            if result is None or (hasattr(result, 'type_') and result.type_ == 'string'):
+                result_str = default
+            else:
+                result_str = str(result) if result else ""
+            
+            if result_str:
+                return result_str
+            
+            # If value is empty and we have retries left, wait and retry
+            if attempt < max_retries - 1:
+                logger.debug(f"Empty value for '{label}', retrying (attempt {attempt + 1}/{max_retries})")
+                await asyncio.sleep(0.5)
+            else:
+                return default
+                
+        except Exception as e:
+            logger.warning(f"Not found post card items '{label}': {e} for page {page.url} (attempt {attempt + 1}/{max_retries})")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(0.5)
+                continue
+            return default
 
     return default
 
@@ -192,15 +363,3 @@ def save_results_to_csv(results):
         writer.writerows(rows)
 
     logger.info(f"Đã lưu dữ liệu raw vào: {output_path}")
-    
-    
-async def reload_page(page, reload_times: int=2):
-    for i in range(reload_times):
-        try:
-
-            return True
-        except Exception as e:
-            await page.reload()
-            await asyncio.sleep(2)
-            logger.warning(f"Cannot reload page: {e} for page {page.url}")
-    return False

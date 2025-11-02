@@ -9,6 +9,7 @@ from utils import (
     extract_value_from_project_card,
     extract_value_from_post_card,
     save_results_to_csv,
+    wait_for_content_load,
 )
 from typing import Optional
 from nodriver.core.connection import ProtocolException
@@ -41,18 +42,22 @@ async def extract_subpage_urls(page):
     subpage_urls = []
     for href in href_list:
         href = href.get("value")
-        if href.startswith('/'):  # Nếu là URL tương đối
+        if href.startswith('/'):  
             subpage_urls.append(BASE_URL + href)
-        elif href.startswith(BASE_URL):  # Nếu là URL tuyệt đối và bắt đầu với BASE_URL
+        elif href.startswith(BASE_URL):  
             subpage_urls.append(href)
     
     return subpage_urls
 
 
 async def extract_data_from_page(page):
-    
-    await page.reload()
-    
+    """Extract data từ page sau khi đã load hoàn toàn và scroll"""
+
+    logger.info(f"Bắt đầu extract data từ: {page.url}")
+
+    # Chờ page load hoàn toàn và trigger lazy loading
+    await wait_for_content_load(page)
+
     item = {}
 
     item['title'] = await text_from_selector(page, "h1[class='re__pr-title pr-title js__pr-title']")
@@ -60,6 +65,7 @@ async def extract_data_from_page(page):
 
     item['price'] = await extract_value_from_specs(page, "Khoảng giá")
     item['area'] = await extract_value_from_specs(page, "Diện tích")
+
     item['house_direction'] = await extract_value_from_specs(page, "Hướng nhà")
     item['balcony_direction'] = await extract_value_from_specs(page, "Hướng ban công")
     item['facade'] = await extract_value_from_specs(page, "Mặt tiền")
@@ -73,16 +79,17 @@ async def extract_data_from_page(page):
     item['project_name'] = await text_from_selector(page, "div[class='re__project-title']")
     item['project_status'] = await extract_value_from_project_card(page, "re__icon-info-circle--sm")
     item['project_investor'] = await extract_value_from_project_card(page, "re__icon-office--sm")
-
+    
     item['post_id'] = await extract_value_from_post_card(page, "Mã tin")
     item['post_start_time'] = await extract_value_from_post_card(page, "Ngày đăng")
     item['post_end_time'] = await extract_value_from_post_card(page, "Ngày hết hạn")
     item['post_type'] = await extract_value_from_post_card(page, "Loại tin")
-
+    
     item["source"] = "batdongsan.com.vn"
     item["url"] = page.url
     item["crawled_at"] = datetime.now(timezone.utc).isoformat()
 
+    # Item not allow null:
     return item
     
 
@@ -139,7 +146,7 @@ async def scrape_main_page(url: str, page_semaphore: asyncio.Semaphore, subpage_
     """
     Hàm xử lý một main page và các subpage của nó
     """
-    async with page_semaphore:  # Giữ một slot trong 4 slot cho phép
+    async with page_semaphore:  
         logger.info(f"Đang xử lý main page: {url}")
         
         # Khởi tạo browser và mở page với các tùy chọn chống phát hiện
@@ -151,30 +158,108 @@ async def scrape_main_page(url: str, page_semaphore: asyncio.Semaphore, subpage_
                 '--disable-blink-features=AutomationControlled',
                 '--disable-extensions',
                 '--disable-plugins',
-                '--window-size=1366,768',
+                '--window-size=136,768',
                 '--lang=vi-VN',
-                '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                '--disable-blink-features=AutomationControlled',
+                '--disable-features=VizDisplayCompositor',
+                '--enable-automation',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-renderer-backgrounding',
+                '--disable-ipc-flooding-protection',
+                '--disable-background-networking',
+                '--disable-default-apps',
+                '--disable-extensions',
+                '--disable-plugins',
+                '--disable-sync',
+                '--no-first-run',
+                '--disable-bundled-ppapi-flash',
+                '--disable-accelerated-2d-canvas',
+                '--disable-accelerated-jpeg-decoding',
+                '--disable-dev-shm-usage',
+                '--disable-web-security',
+                '--allow-running-insecure-content',
+                '--disable-features=TranslateUI',
+                '--remote-debugging-port=9222',
+                '--disable-features=VizDisplayCompositor'
             ]
         )
+        
         page = await browser.get(url)
         
         # Thêm đoạn mã giả mạo các thuộc tính đặc trưng của bot
         await page.evaluate(
             """
+            // Xóa webdriver property
             Object.defineProperty(navigator, 'webdriver', {
                 get: () => undefined,
             });
+            
+            // Tạo plugin array giả
             Object.defineProperty(navigator, 'plugins', {
-                get: () => [1, 2, 3, 4, 5],
+                get: () => {
+                    const pluginArray = [
+                        { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+                        { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
+                        { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' }
+                    ];
+                    pluginArray.length = 3;
+                    return pluginArray;
+                },
             });
+            
+            // Tạo ngôn ngữ giả
             Object.defineProperty(navigator, 'languages', {
                 get: () => ['vi-VN', 'vi', 'en-US', 'en'],
             });
+            
+            // Thêm thuộc tính missing
+            Object.defineProperty(navigator, 'vendor', {
+                get: () => 'Google Inc.',
+            });
+            
+            // Thêm thuộc tính webdriver giả
+            Object.defineProperty(navigator, 'userAgent', {
+                get: () => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            });
+            
+            // Thêm window.chrome giả
+            if (window.chrome) {
+                window.chrome.runtime = {
+                    connect: () => {},
+                    sendMessage: () => {}
+                };
+            } else {
+                Object.defineProperty(window, 'chrome', {
+                    value: {
+                        runtime: {
+                            connect: () => {},
+                            sendMessage: () => {}
+                        }
+                    },
+                    writable: true
+                });
+            }
+            
+            // Giả lập webgl
+            const originalWebgl = WebGLRenderingContext.prototype.getParameter;
+            WebGLRenderingContext.prototype.getParameter = function(parameter) {
+                if (parameter === 37445) return 'Intel Inc.';
+                if (parameter === 37446) return 'Intel Iris OpenGL Engine';
+                return originalWebgl.call(this, parameter);
+            };
+            
+            // Giả lập canvas
+            const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
+            HTMLCanvasElement.prototype.toDataURL = function() {
+                // Thêm nhiễu ngẫu nhiên vào canvas để tránh phát hiện
+                return originalToDataURL.apply(this, arguments);
+            };
             """
         )
         
         # Chờ ngẫu nhiên để mô phỏng hành vi người dùng thật
-
         await asyncio.sleep(5)
         
         # Lấy danh sách subpage từ main page này
@@ -255,10 +340,6 @@ async def main():
 
     
     save_results_to_csv(all_results)
-
-    # Trả về kết quả (tùy chọn, có thể lưu vào file hoặc xử lý thêm)
-    return all_results
-
 
 
 if __name__ == "__main__":
