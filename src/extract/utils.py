@@ -124,25 +124,18 @@ def text_from_element(element) -> Optional[str]:
     return stripped or None
 
 
-async def text_from_selector(page, selector: str, attempts: int = 3, delay: float = 3) -> Optional[str]:
-    """Cải thiện retry logic với delay"""
-    for attempt in range(attempts):
-        try:
-            element = await page.query_selector(selector)
-            if element:
-                text = element.text
-                if text:
-                    return text.strip()
-                else:
-                    await page.reload()
-        except Exception as e:
-            logger.debug(f"Attempt {attempt+1} failed for selector '{selector}': {e}")
-            await page.reload()
-        if attempt < attempts - 1:
-            await asyncio.sleep(delay)
-
-    logger.warning(f"Not found selector '{selector}' after {attempts} attempts for page {page.url}")
-    return None
+async def text_from_selector(page, selector: str) -> Optional[str]:
+    """Extract text from selector"""
+    try:
+        element = await page.query_selector(selector)
+        if element:
+            text = element.text
+            return text.strip()
+        else:
+            return None
+    except Exception as e:
+        logger.debug(f"Not found selector '{selector}': {e} for page {page.url}")
+        return None
 
 
 async def extract_value_from_specs(page, label: str, default: str = "") -> str:
