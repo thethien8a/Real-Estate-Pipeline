@@ -91,3 +91,6 @@ docs/_build/
 .cursor/
 
 .serena/
+
+AGENTS.md
+.kilocodeignore
