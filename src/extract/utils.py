@@ -202,9 +202,6 @@ async def extract_value_from_project_card(page, icon_class: str, default: str = 
     """
     for attempt in range(max_retries):
         try:
-            # Build JavaScript code with embedded parameters
-            # nodriver only accepts JavaScript string, not function with parameters
-            # IMPORTANT: Must return string, not undefined/null to avoid RemoteObject
             js_code = f"""
             (function() {{
                 const iconClass = {repr(icon_class)};
