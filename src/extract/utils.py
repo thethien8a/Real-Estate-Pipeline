@@ -107,35 +107,48 @@ async def wait_for_content_load(
     await asyncio.sleep(3.0)
 
 
+async def text_from_selector(page, selector: str, attempts: int = 3, delay: float = 3) -> Optional[str]:
+    """
+    Extract text from selector using JavaScript to avoid RemoteObject issues.
+    Includes retry logic with delay for asynchronously loaded content.
+    """
+    for attempt in range(attempts):
+        try:
+            # Use JavaScript to extract text directly in browser
+            js_code = f"""
+            (function() {{
+                const selector = {repr(selector)};
+                const element = document.querySelector(selector);
+                
+                if (element) {{
+                    const text = element.textContent || element.innerText || '';
+                    const trimmed = text.trim();
+                    return trimmed || null;
+                }}
+                
+                return null;
+            }})();
+            """
+            
+            result = await page.evaluate(js_code, return_by_value=True)
+            
+            # Handle RemoteObject fallback
+            if hasattr(result, 'value'):
+                result = result.value
+            
+            if result:
+                return str(result)
+                
+        except Exception as e:
+            logger.debug(f"Attempt {attempt+1} failed for selector '{selector}': {e}")
+            await page.reload()
+            
+        if attempt < attempts - 1:
+            await page.reload()
+            await asyncio.sleep(delay)
 
-def text_from_element(element) -> Optional[str]:
-    if element is None:
-        return None
-
-    try:
-        text = element.text
-    except Exception:
-        return None
-
-    if text is None:
-        return None
-
-    stripped = text.strip()
-    return stripped or None
-
-
-async def text_from_selector(page, selector: str) -> Optional[str]:
-    """Extract text from selector"""
-    try:
-        element = await page.query_selector(selector)
-        if element:
-            text = element.text
-            return text.strip()
-        else:
-            return None
-    except Exception as e:
-        logger.debug(f"Not found selector '{selector}': {e} for page {page.url}")
-        return None
+    logger.warning(f"Not found selector '{selector}' after {attempts} attempts for page {page.url}")
+    return None
 
 
 async def extract_value_from_specs(page, label: str, default: str = "") -> str:
@@ -182,44 +195,67 @@ async def extract_value_from_specs(page, label: str, default: str = "") -> str:
         return default
 
 
-async def extract_value_from_project_card(page, icon_class: str, default: str = "") -> str:
+async def extract_value_from_project_card(page, icon_class: str, default: str = "", max_retries: int = 3) -> str:
     """
     Extract value from project card using JavaScript to avoid CBOR stack limit errors.
+    Includes retry logic with page reload if default value is returned.
     """
-    try:
-        # Build JavaScript code with embedded parameters
-        # nodriver only accepts JavaScript string, not function with parameters
-        # IMPORTANT: Must return string, not undefined/null to avoid RemoteObject
-        js_code = f"""
-        (function() {{
-            const iconClass = {repr(icon_class)};
-            const defaultValue = {repr(default)};
-            const items = document.querySelectorAll('span.re__prj-card-config-value');
-            
-            for (const item of items) {{
-                const icon = item.querySelector('i.' + iconClass);
-                if (icon) {{
-                    const valueElement = item.querySelector('span.re__long-text');
-                    if (valueElement) {{
-                        const value = valueElement.textContent.trim();
-                        return value ? value : defaultValue;
+    for attempt in range(max_retries):
+        try:
+            # Build JavaScript code with embedded parameters
+            # nodriver only accepts JavaScript string, not function with parameters
+            # IMPORTANT: Must return string, not undefined/null to avoid RemoteObject
+            js_code = f"""
+            (function() {{
+                const iconClass = {repr(icon_class)};
+                const defaultValue = {repr(default)};
+                const items = document.querySelectorAll('span.re__prj-card-config-value');
+                
+                for (const item of items) {{
+                    const icon = item.querySelector('i.' + iconClass);
+                    if (icon) {{
+                        const valueElement = item.querySelector('span.re__long-text');
+                        if (valueElement) {{
+                            const value = valueElement.textContent.trim();
+                            return value ? value : defaultValue;
+                        }}
                     }}
                 }}
-            }}
+                
+                return defaultValue;
+            }})()
+            """
             
-            return defaultValue;
-        }})()
-        """
-        
-        result = await page.evaluate(js_code, return_by_value=True)
-        # Ensure we return string, not RemoteObject or None
-        if result is None or (hasattr(result, 'type_') and result.type_ == 'string'):
-            return default
-        return str(result) if result else default
-        
-    except Exception as e:
-        logger.warning(f"Cannot load project card items '{icon_class}': {e} for page {page.url}")
-        return default
+            result = await page.evaluate(js_code, return_by_value=True)
+            # Ensure we return string, not RemoteObject or None
+            if result is None or (hasattr(result, 'type_') and result.type_ == 'string'):
+                result_str = default
+            else:
+                result_str = str(result) if result else default
+            
+            # If we got a non-default value, return it
+            if result_str != default:
+                return result_str
+            
+            # If we got default value and have retries left, reload and retry
+            if attempt < max_retries - 1:
+                logger.debug(f"Got default value for icon '{icon_class}', reloading page (attempt {attempt + 1}/{max_retries})")
+                await page.reload()
+                await wait_for_content_load(page)
+            else:
+                logger.warning(f"Cannot load project card items '{icon_class}' after {max_retries} attempts for page {page.url}")
+                return default
+            
+        except Exception as e:
+            if attempt < max_retries - 1:
+                logger.debug(f"Error extracting project card value '{icon_class}': {e}, retrying (attempt {attempt + 1}/{max_retries})")
+                await page.reload()
+                await wait_for_content_load(page)
+            else:
+                logger.warning(f"Cannot load project card items '{icon_class}': {e} for page {page.url}")
+                return default
+    
+    return default
 
 
 async def extract_value_from_post_card(page, label: str, default: str = "", max_retries: int = 3) -> str:
@@ -229,9 +265,6 @@ async def extract_value_from_post_card(page, label: str, default: str = "", max_
     """
     for attempt in range(max_retries):
         try:
-            # Build JavaScript code with embedded parameters
-            # nodriver only accepts JavaScript string, not function with parameters
-            # IMPORTANT: Return empty string "" instead of null to avoid RemoteObject
             js_code = f"""
             (function() {{
                 const label = {repr(label)};

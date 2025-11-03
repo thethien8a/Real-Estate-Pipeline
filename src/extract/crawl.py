@@ -89,7 +89,6 @@ async def extract_data_from_page(page):
     item["url"] = page.url
     item["crawled_at"] = datetime.now(timezone.utc).isoformat()
 
-    # Item not allow null:
     return item
     
 
