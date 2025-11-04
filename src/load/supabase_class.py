@@ -12,8 +12,8 @@ class SupabaseManager:
             url: Supabase URL
             key: Supabase API Key (khuyến nghị sb_secret_... cho pipeline)
         """
-        self.url = os.environ.get("SUPABASE_URL")
-        self.key = os.environ.get("SUPABASE_KEY")
+        self.url = url or os.environ.get("SUPABASE_URL")
+        self.key = key or os.environ.get("SUPABASE_KEY")
         
         if not self.url or not self.key:
             raise ValueError("Supabase URL và Key là bắt buộc")
