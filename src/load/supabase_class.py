@@ -3,29 +3,60 @@ import os
 import logging
 from typing import List, Dict, Any, Optional, Union
 from supabase import create_client, Client
+from supabase.client import ClientOptions
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class SupabaseManager:
-    def __init__(self, url: str = None, key: str = None):
+    def __init__(self, url: str = None, key: str = None, default_schema: Optional[str] = None):
         """
         Khởi tạo Supabase Manager
         Args:
             url: Supabase URL
             key: Supabase API Key (khuyến nghị sb_secret_... cho pipeline)
+            default_schema: nếu cung cấp, sẽ khởi tạo client mặc định với schema này
         """
-        self.url = url or os.environ.get("SUPABASE_URL")
-        self.key = key or os.environ.get("SUPABASE_KEY")
+        self.url = url or os.getenv("SUPABASE_URL")
+        self.key = key or os.getenv("SUPABASE_KEY")
+        self.default_schema = default_schema
+        # cache client instances per schema for flexible multi-schema usage
+        self._clients: Dict[Optional[str], Client] = {}
         
         if not self.url or not self.key:
             raise ValueError("Supabase URL và Key là bắt buộc")
             
-        self.client: Client = create_client(self.url, self.key)
+        # create initial client (respect default_schema if provided)
+        if self.default_schema:
+            initial_client = create_client(self.url, self.key, options=ClientOptions(schema=self.default_schema))
+        else:
+            initial_client = create_client(self.url, self.key)
+
+        self._clients[self.default_schema] = initial_client
+        # keep a convenience reference for backwards compatibility
+        self.client: Client = initial_client
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
+
+    def _get_client_for_schema(self, schema: Optional[str]) -> Client:
+        """Return a supabase client for the given schema, creating and caching it if needed."""
+        schema_key = schema if schema is not None else None
+        if schema_key in self._clients:
+            return self._clients[schema_key]
+
+        if schema:
+            client = create_client(self.url, self.key, options=ClientOptions(schema=schema))
+        else:
+            client = create_client(self.url, self.key)
+
+        self._clients[schema_key] = client
+        return client
     
-    def create(self, table: str, data: Union[Dict, List[Dict]]) -> Dict:
+    def create(self, table: str, data: Union[Dict, List[Dict]], schema: Optional[str] = None) -> Dict:
         """Tạo records mới"""
         try:
-            result = self.client.table(table).insert(data).execute()
+            client = self._get_client_for_schema(schema or self.default_schema)
+            result = client.table(table).insert(data).execute()
             self.logger.info(f"Tạo thành công {len(data)} records trong {table}")
             return {"success": True, "data": result.data}
         except Exception as e:
@@ -33,10 +64,11 @@ class SupabaseManager:
             return {"success": False, "error": str(e)}
 
     def read(self, table: str, columns: str = "*", filters: Dict = None, 
-             order_by: str = None, limit: int = None, offset: int = None) -> Dict:
+             order_by: str = None, limit: int = None, offset: int = None, schema: Optional[str] = None) -> Dict:
         """Đọc records"""
         try:
-            query = self.client.table(table).select(columns)
+            client = self._get_client_for_schema(schema or self.default_schema)
+            query = client.table(table).select(columns)
             
             # Áp dụng filters
             if filters:
@@ -62,6 +94,8 @@ class SupabaseManager:
     def update(self, table: str, data: Dict, filters: Dict) -> Dict:
         """Cập nhật records"""
         try:
+            # allow optional schema via filters dict key '_schema' or via explicit param in future
+            client = self._get_client_for_schema(None)
             query = self.client.table(table).update(data)
             
             # Áp dụng filters
@@ -78,6 +112,7 @@ class SupabaseManager:
     def delete(self, table: str, filters: Dict) -> Dict:
         """Xóa records"""
         try:
+            client = self._get_client_for_schema(None)
             query = self.client.table(table).delete()
             
             # Áp dụng filters
@@ -95,7 +130,8 @@ class SupabaseManager:
                on_conflict: str = None) -> Dict:
         """Upsert (insert or update)"""
         try:
-            query = self.client.table(table).upsert(data)
+            client = self._get_client_for_schema(None)
+            query = client.table(table).upsert(data)
             if on_conflict:
                 query = query.on_conflict(on_conflict)
             result = query.execute()
@@ -112,7 +148,8 @@ class SupabaseManager:
             results = []
             for i in range(0, len(data_list), batch_size):
                 batch = data_list[i:i + batch_size]
-                result = self.client.table(table).insert(batch).execute()
+                client = self._get_client_for_schema(None)
+                result = client.table(table).insert(batch).execute()
                 results.extend(result.data)
             
             self.logger.info(f"Batch insert {len(results)} records")
@@ -124,7 +161,8 @@ class SupabaseManager:
     def query_with_conditions(self, table: str, conditions: Dict) -> Dict:
         """Query với nhiều điều kiện"""
         try:
-            query = self.client.table(table).select("*")
+            client = self._get_client_for_schema(None)
+            query = client.table(table).select("*")
             
             for key, condition in conditions.items():
                 if isinstance(condition, dict):
@@ -156,7 +194,8 @@ class SupabaseManager:
     def count_records(self, table: str, filters: Dict = None) -> Dict:
         """Đếm số lượng records"""
         try:
-            query = self.client.table(table).select("*", count="exact")
+            client = self._get_client_for_schema(None)
+            query = client.table(table).select("*", count="exact")
             
             if filters:
                 for key, value in filters.items():
@@ -173,7 +212,8 @@ class SupabaseManager:
         """Lấy dữ liệu phân trang"""
         try:
             offset = (page - 1) * page_size
-            result = self.client.table(table).select(columns)\
+            client = self._get_client_for_schema(None)
+            result = client.table(table).select(columns)\
                 .range(offset, offset + page_size - 1).execute()
             
             return {
@@ -190,7 +230,8 @@ class SupabaseManager:
     def test_connection(self) -> Dict:
         """Kiểm tra kết nối"""
         try:
-            result = self.client.table("_temp_connection_test")\
+            client = self._get_client_for_schema(None)
+            result = client.table("_temp_connection_test")\
                 .select("*").limit(1).execute()
             return {"success": True, "message": "Kết nối thành công"}
         except Exception as e:
@@ -200,7 +241,8 @@ class SupabaseManager:
         """Lấy thông tin về bảng"""
         try:
             # Lấy sample data
-            sample_data = self.client.table(table).select("*").limit(1).execute()
+            client = self._get_client_for_schema(None)
+            sample_data = client.table(table).select("*").limit(1).execute()
             
             # Lấy schema (nếu cần)
             schema_info = {

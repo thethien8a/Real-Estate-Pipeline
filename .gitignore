@@ -94,3 +94,5 @@ docs/_build/
 
 AGENTS.md
 .kilocodeignore
+
+*.csv
