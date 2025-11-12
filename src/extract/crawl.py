@@ -160,11 +160,27 @@ async def scrape_main_page(url: str, page_semaphore: asyncio.Semaphore, subpage_
             '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         ]
         
-        browser = await uc.start(
-            headless=True,
-            no_sandbox=True,
-            browser_args=browser_args
-        )
+        # Thêm retry logic khi khởi tạo browser
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Khởi tạo browser (attempt {attempt + 1}/{max_retries})")
+                browser = await uc.start(
+                    headless=True,
+                    no_sandbox=True,
+                    browser_executable_path="/usr/bin/google-chrome-stable",
+                    browser_args=browser_args
+                )
+                # Kiểm tra connection có hợp lệ không
+                if not getattr(browser, "connection", None):
+                    raise RuntimeError("Browser started but connection is None")
+                logger.info("Browser started successfully in CI")
+                break
+            except Exception as e:
+                logger.warning(f"Browser start attempt {attempt + 1} failed: {e}")
+                if attempt == max_retries - 1:
+                    raise RuntimeError(f"Failed to start browser after {max_retries} attempts") from e
+                await asyncio.sleep(2)
         
         page = await browser.get(url)
         
@@ -270,10 +286,15 @@ async def scrape_main_page(url: str, page_semaphore: asyncio.Semaphore, subpage_
             subpage_results = []
         
         # Đóng browser khi hoàn thành
-        try:
-            await browser.stop()
-        except Exception as e:
-            logger.debug(f"Browser stop error: {e}")
+        if browser is not None:
+            try:
+                # chỉ stop nếu có connection hợp lệ (tránh bug nodriver cleanup)
+                if getattr(browser, "connection", None):
+                    await browser.stop()
+                else:
+                    logger.warning("Browser connection is None, skipping stop")
+            except Exception as e:
+                logger.debug(f"Browser stop error: {e}")
         
     logger.info(f"Đã hoàn thành main page: {url} với {len(subpage_results)} subpage")
     return {
