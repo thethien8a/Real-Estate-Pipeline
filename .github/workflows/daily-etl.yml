@@ -39,7 +39,6 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             google-chrome-stable \
             fonts-liberation \
-            libasound2 \
             libatk-bridge2.0-0 \
             libatk1.0-0 \
             libatspi2.0-0 \
@@ -48,6 +47,7 @@ jobs:
             libdbus-1-3 \
             libdrm2 \
             libgbm1 \
+            libglib2.0-0 \
             libgtk-3-0 \
             libnspr4 \
             libnss3 \
@@ -67,6 +67,11 @@ jobs:
             libxrender1 \
             libxss1 \
             libxtst6
+          if apt-cache show libasound2 > /dev/null 2>&1; then
+            sudo apt-get install -y --no-install-recommends libasound2
+          else
+            sudo apt-get install -y --no-install-recommends libasound2t64
+          fi
           sudo rm -rf /var/lib/apt/lists/*
           
       - name: Install dependencies
