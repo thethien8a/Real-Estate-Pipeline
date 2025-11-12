@@ -2,7 +2,7 @@ name: Daily ETL
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   schedule:
     # Chạy 12h đêm
     - cron: "0 17 * * *"
