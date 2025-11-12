@@ -72,6 +72,12 @@ jobs:
             libxtst6
           sudo rm -rf /var/lib/apt/lists/*
           
+      - name: Verify Chrome installation
+        run: |
+          which google-chrome-stable
+          google-chrome-stable --version
+          echo "Chrome installed successfully"
+          
       - name: Install dependencies
         run: |
           pip install --upgrade pip
@@ -81,6 +87,6 @@ jobs:
         run: |
           python src/extract/crawl.py
 
-      - name: Run load
-        run: |
-          python src/load/load.py
+      # - name: Run load
+      #   run: |
+      #     python src/load/load.py
