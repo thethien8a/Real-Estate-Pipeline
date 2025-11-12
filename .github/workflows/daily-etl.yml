@@ -22,6 +22,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -33,7 +38,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements/requirements.txt
-
+      
       - name: Run extract (crawl)
         run: |
           python src/extract/crawl.py
