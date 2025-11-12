@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 import nodriver as uc
@@ -149,40 +150,21 @@ async def scrape_main_page(url: str, page_semaphore: asyncio.Semaphore, subpage_
         logger.info(f"Đang xử lý main page: {url}")
         
         # Khởi tạo browser và mở page với các tùy chọn chống phát hiện
+        IS_CI = os.getenv("CI") == "true"
+        browser_args = [
+            '--no-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--disable-setuid-sandbox',
+            '--window-size=1366,768',
+            '--lang=vi-VN',
+            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        ]
+        
         browser = await uc.start(
             headless=True,
-            browser_args=[
-                '--no-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-blink-features=AutomationControlled',
-                '--disable-extensions',
-                '--disable-plugins',
-                '--window-size=136,768',
-                '--lang=vi-VN',
-                '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                '--disable-blink-features=AutomationControlled',
-                '--disable-features=VizDisplayCompositor',
-                '--enable-automation',
-                '--disable-background-timer-throttling',
-                '--disable-backgrounding-occluded-windows',
-                '--disable-renderer-backgrounding',
-                '--disable-ipc-flooding-protection',
-                '--disable-background-networking',
-                '--disable-default-apps',
-                '--disable-extensions',
-                '--disable-plugins',
-                '--disable-sync',
-                '--no-first-run',
-                '--disable-bundled-ppapi-flash',
-                '--disable-accelerated-2d-canvas',
-                '--disable-accelerated-jpeg-decoding',
-                '--disable-dev-shm-usage',
-                '--disable-web-security',
-                '--allow-running-insecure-content',
-                '--disable-features=TranslateUI',
-                '--remote-debugging-port=9222',
-                '--disable-features=VizDisplayCompositor'
-            ]
+            no_sandbox=True if IS_CI else False,
+            browser_args=browser_args
         )
         
         page = await browser.get(url)
