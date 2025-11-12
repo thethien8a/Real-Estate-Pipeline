@@ -160,7 +160,6 @@ async def scrape_main_page(url: str, page_semaphore: asyncio.Semaphore, subpage_
             '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         ]
         
-        logger.info("TESTING")
         browser = await uc.start(
             headless=True,
             no_sandbox=True,
