@@ -150,7 +150,6 @@ async def scrape_main_page(url: str, page_semaphore: asyncio.Semaphore, subpage_
         logger.info(f"Đang xử lý main page: {url}")
         
         # Khởi tạo browser và mở page với các tùy chọn chống phát hiện
-        IS_CI = os.getenv("CI") == "true"
         browser_args = [
             '--no-sandbox',
             '--disable-dev-shm-usage',
@@ -163,7 +162,7 @@ async def scrape_main_page(url: str, page_semaphore: asyncio.Semaphore, subpage_
         
         browser = await uc.start(
             headless=True,
-            no_sandbox=True if IS_CI else False,
+            no_sandbox=True,
             browser_args=browser_args
         )
         
@@ -271,7 +270,10 @@ async def scrape_main_page(url: str, page_semaphore: asyncio.Semaphore, subpage_
             subpage_results = []
         
         # Đóng browser khi hoàn thành
-        browser.stop()
+        try:
+            await browser.stop()
+        except Exception as e:
+            logger.debug(f"Browser stop error: {e}")
         
     logger.info(f"Đã hoàn thành main page: {url} với {len(subpage_results)} subpage")
     return {
@@ -324,5 +326,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    # Sử dụng nodriver.loop() thay vì asyncio.run()
-    results = uc.loop().run_until_complete(main())
+    results = asyncio.run(main())
