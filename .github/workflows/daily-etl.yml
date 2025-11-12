@@ -1,0 +1,43 @@
+name: Daily ETL 
+
+on:
+  schedule:
+    # Chạy 12h đêm
+    - cron: "0 17 * * *"
+    # Chạy 12h trưa
+    - cron: "0 5 * * *"
+  workflow_dispatch: # Cho phép chạy tay từ GitHub UI
+
+jobs:
+  daily-etl:
+    runs-on: ubuntu-latest
+
+    env:
+      # Đặt tên env đọc từ GitHub Secrets
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      # DB_URL: ${{ secrets.DB_URL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: "requirements/requirements.txt"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements/requirements.txt
+
+      - name: Run extract (crawl)
+        run: |
+          python src/extract/crawl.py
+
+      - name: Run load
+        run: |
+          python src/load/load.py
