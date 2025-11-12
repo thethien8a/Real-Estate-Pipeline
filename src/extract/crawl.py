@@ -28,7 +28,6 @@ BASE_URL = "https://batdongsan.com.vn"
 START = "/nha-dat-ban/"
 
 RAW_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "raw"
-CHROME_EXECUTABLE = os.getenv("CHROME_EXECUTABLE", "/usr/bin/google-chrome-stable")
 
 
 async def extract_subpage_urls(page):
@@ -158,15 +157,13 @@ async def scrape_main_page(url: str, page_semaphore: asyncio.Semaphore, subpage_
             '--disable-setuid-sandbox',
             '--window-size=1366,768',
             '--lang=vi-VN',
-            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            '--enable-logging=stderr',
-            '--v=1'
+            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         ]
         
+        print("TEST")
         browser = await uc.start(
             headless=True,
             no_sandbox=True,
-            browser_executable_path=CHROME_EXECUTABLE,
             browser_args=browser_args
         )
         
