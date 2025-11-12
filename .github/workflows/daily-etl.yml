@@ -83,10 +83,10 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements/requirements.txt
       
-      - name: Run extract (crawl)
-        run: |
-          python src/extract/crawl.py
-
-      # - name: Run load
+      # - name: Run extract (crawl)
       #   run: |
-      #     python src/load/load.py
+      #     python src/extract/crawl.py
+
+      - name: Run load
+        run: |
+          python src/load/load.py
