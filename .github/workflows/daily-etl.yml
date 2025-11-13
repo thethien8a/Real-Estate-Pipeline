@@ -13,7 +13,8 @@ on:
 jobs:
   daily-etl:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 120
+    
     env:
       # Đặt tên env đọc từ GitHub Secrets
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
