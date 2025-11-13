@@ -11,47 +11,64 @@ on:
   workflow_dispatch: # Cho phép chạy tay từ GitHub UI
 
 jobs:
-  daily-etl:
+  debug:
     runs-on: ubuntu-latest
-
+    
     env:
-      # Đặt tên env đọc từ GitHub Secrets
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-      # DB_URL: ${{ secrets.DB_URL }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: "pip"
-          cache-dependency-path: "requirements/requirements.txt"
-
-      - name: Setup Chrome
-        uses: browser-actions/setup-chrome@v1
-        with:
-          chrome-version: "latest"
-          install-dependencies: true
-          
-      - name: Verify Chrome installation
+      - name: Verify secrets are available
         run: |
-          which google-chrome-stable
-          google-chrome-stable --version
-          echo "Chrome installed successfully"
+          : "${SUPABASE_URL:?SUPABASE_URL secret is not set}"
+          : "${SUPABASE_KEY:?SUPABASE_KEY secret is not set}"
+          echo "✅ All required secrets are available"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+
+  # daily-etl:
+  #   runs-on: ubuntu-latest
+
+  #   env:
+  #     # Đặt tên env đọc từ GitHub Secrets
+  #     SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  #     SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+  #     # DB_URL: ${{ secrets.DB_URL }}
+
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
+
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: "3.12"
+  #         cache: "pip"
+  #         cache-dependency-path: "requirements/requirements.txt"
+
+  #     - name: Setup Chrome
+  #       uses: browser-actions/setup-chrome@v1
+  #       with:
+  #         chrome-version: "latest"
+  #         install-dependencies: true
+
+  #     - name: Verify Chrome installation
+  #       run: |
+  #         which google-chrome-stable
+  #         google-chrome-stable --version
+  #         echo "Chrome installed successfully"
           
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements/requirements.txt
+  #     - name: Install dependencies
+  #       run: |
+  #         pip install --upgrade pip
+  #         pip install -r requirements/requirements.txt
       
-      # - name: Run extract (crawl)
-      #   run: |
-      #     python src/extract/crawl.py
+  #     # - name: Run extract (crawl)
+  #     #   run: |
+  #     #     python src/extract/crawl.py
 
-      - name: Run load
-        run: |
-          python src/load/load.py
+  #     - name: Run load
+  #       run: |
+  #         python src/load/load.py
