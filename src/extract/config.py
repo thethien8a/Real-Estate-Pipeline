@@ -9,10 +9,10 @@ class CrawlConfig:
     SUBPAGE_SEMAPHORE_LIMIT = 10
     
     # Trang bắt đầu thu thập
-    START_PAGE = 1
+    START_PAGE = 8
     
     # Trang kết thúc thu thập
-    END_PAGE = 4
+    END_PAGE = 14
 
 
 def get_page_semaphore():
