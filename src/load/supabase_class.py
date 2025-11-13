@@ -17,8 +17,8 @@ class SupabaseManager:
             key: Supabase API Key (khuyến nghị sb_secret_... cho pipeline)
             default_schema: nếu cung cấp, sẽ khởi tạo client mặc định với schema này
         """
-        self.url = url or os.getenv("SUPABASE_URL")
-        self.key = key or os.getenv("SUPABASE_KEY")
+        self.url = url or os.environ.getenv("SUPABASE_URL")
+        self.key = key or os.environ.getenv("SUPABASE_KEY")
         self.default_schema = default_schema
         # cache client instances per schema for flexible multi-schema usage
         self._clients: Dict[Optional[str], Client] = {}
