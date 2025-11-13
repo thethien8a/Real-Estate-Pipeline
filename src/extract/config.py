@@ -12,7 +12,7 @@ class CrawlConfig:
     START_PAGE = 1
     
     # Trang kết thúc thu thập
-    END_PAGE = 2
+    END_PAGE = 4
 
 
 def get_page_semaphore():
