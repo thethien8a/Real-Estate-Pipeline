@@ -1,20 +1,26 @@
 name: Daily ETL 
 
 on:
-  push:
-    branches: [ main ]
+  # push:
+  #   branches: [ main ]
+
   schedule:
-    # Chạy 12h đêm
+    # Chạy 12h đêm 
     - cron: "0 17 * * *"
-    # Chạy 12h trưa
+    # Chạy 6h sáng 
+    - cron: "0 23 * * *"
+    # Chạy 12h trưa 
     - cron: "0 5 * * *"
+    # Chạy 6h chiều 
+    - cron: "0 11 * * *"
+
   workflow_dispatch: # Cho phép chạy tay từ GitHub UI
 
 jobs:
   daily-etl:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    
+
     env:
       # Đặt tên env đọc từ GitHub Secrets
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
