@@ -3,16 +3,16 @@ import asyncio
 
 class CrawlConfig:
     # Semaphore cho main page - giới hạn số lượng main page được xử lý đồng thời
-    PAGE_SEMAPHORE_LIMIT = 10
+    PAGE_SEMAPHORE_LIMIT = 25
     
     # Semaphore cho subpage - giới hạn số lượng subpage được xử lý đồng thời cho mỗi main page
     SUBPAGE_SEMAPHORE_LIMIT = 10
     
     # Trang bắt đầu thu thập
-    START_PAGE = 30
+    START_PAGE = 45
     
     # Trang kết thúc thu thập
-    END_PAGE = 40
+    END_PAGE = 70
 
 
 def get_page_semaphore():
