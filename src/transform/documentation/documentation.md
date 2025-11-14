@@ -68,4 +68,7 @@
         + have_red_book: nếu có số đỏ thì 1 còn không thì là 0
         + have_pink_book: nếu có số hồng thì 1 còn không thì là 0
         + have_sale_contract: nếu có hợp đồng mua bán thì 1 còn không thì là 0
-        
+
+    **LƯU Ý:** Với các trường hợp không phải ở trên (hoặc xử lý bị lỗi), ta sẽ cho giá trị đó vào bảng lỗi "error_table"
+
+8. **Cột furniture:**:
