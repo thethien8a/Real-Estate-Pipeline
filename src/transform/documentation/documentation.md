@@ -71,4 +71,6 @@
 
     **LƯU Ý:** Với các trường hợp không phải ở trên (hoặc xử lý bị lỗi), ta sẽ cho giá trị đó vào bảng lỗi "error_table"
 
-8. **Cột furniture:**:
+8. **Cột furniture:**: Sẽ được tạo thành 2 cột:
+    - have_full_furniture: nếu có tất cả nội thất thì 1 còn không thì là 0
+    - furniture_type: với các giá trị như: basic, premium
