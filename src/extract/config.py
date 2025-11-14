@@ -3,7 +3,7 @@ import asyncio
 
 class CrawlConfig:
     # Semaphore cho main page - giới hạn số lượng main page được xử lý đồng thời
-    PAGE_SEMAPHORE_LIMIT = 3
+    PAGE_SEMAPHORE_LIMIT = 4
     
     # Semaphore cho subpage - giới hạn số lượng subpage được xử lý đồng thời cho mỗi main page
     SUBPAGE_SEMAPHORE_LIMIT = 10
