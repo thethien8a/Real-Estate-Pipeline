@@ -1,0 +1,136 @@
+-- Hàm clean area 
+CREATE OR REPLACE FUNCTION clean_area(raw TEXT)
+RETURNS DOUBLE PRECISION AS $$
+DECLARE
+    num TEXT;
+BEGIN
+    IF raw IS NULL OR raw = '' THEN 
+        RETURN NULL;
+    END IF;
+
+    raw := lower(raw);
+
+    -- Chỉ giữ số, dấu phẩy, dấu chấm
+    num := regexp_replace(raw, '[^0-9,\.]', '', 'g');
+
+    -- "47,7" → "47.7"
+    num := replace(num, ',', '.');
+
+    RETURN num::double precision;
+
+EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+--Clean price
+CREATE OR REPLACE FUNCTION clean_price(raw TEXT)
+RETURNS DOUBLE PRECISION AS $$
+DECLARE
+    num TEXT;
+    number_value DOUBLE PRECISION;
+BEGIN
+    IF raw IS NULL OR raw = '' THEN 
+        RETURN NULL;
+    END IF;
+
+    -- Convert to lower case
+    raw := lower(raw);
+
+    -- Bỏ dấu chấm ngăn cách nghìn
+    raw := replace(raw, '.', '');
+
+    -- Giữ lại số, dấu phẩy, dấu chấm
+    num := regexp_replace(raw, '[^0-9,\.]', '', 'g');
+
+    -- Đổi dấu ',' → '.'
+    num := replace(num, ',', '.');
+
+    -- Chuyển về số
+    number_value := num::double precision;
+
+    -- Tính hệ số đơn vị (triệu / tỷ)
+    IF raw LIKE '%tỷ%' THEN
+        number_value := number_value * 1000000000;
+    ELSIF raw LIKE '%tr%' OR raw LIKE '%triệu%' THEN
+        number_value := number_value * 1000000;
+    END IF;
+
+    RETURN number_value;
+
+EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+--view check data
+CREATE OR REPLACE VIEW bronze.qc_daily_overview AS
+SELECT 
+    DATE(crawled_at) AS crawl_date,
+
+    -- Tổng số bản ghi trong ngày
+    COUNT(*) AS total_records,
+
+    -- ============================
+    -- 🔴 Missing Required Fields
+    -- ============================
+
+    SUM(CASE WHEN title IS NULL OR title = '' THEN 1 ELSE 0 END) AS missing_title,
+    SUM(CASE WHEN address IS NULL OR address = '' THEN 1 ELSE 0 END) AS missing_address,
+    SUM(CASE WHEN price IS NULL OR price = '' THEN 1 ELSE 0 END) AS missing_price,
+    SUM(CASE WHEN area IS NULL OR area = '' THEN 1 ELSE 0 END) AS missing_area,
+    SUM(CASE WHEN house_direction IS NULL OR house_direction = '' THEN 1 ELSE 0 END) AS missing_house_direction,
+
+    -- ⭐ NEW: Các missing mới bạn yêu cầu
+    SUM(CASE WHEN balcony_direction IS NULL OR balcony_direction = '' THEN 1 ELSE 0 END) AS missing_balcony_direction,
+    SUM(CASE WHEN facade IS NULL OR facade = '' THEN 1 ELSE 0 END) AS missing_facade,
+    SUM(CASE WHEN legal IS NULL OR legal = '' THEN 1 ELSE 0 END) AS missing_legal,
+    SUM(CASE WHEN furniture IS NULL OR furniture = '' THEN 1 ELSE 0 END) AS missing_furniture,
+    SUM(CASE WHEN number_bedroom IS NULL OR number_bedroom = '' THEN 1 ELSE 0 END) AS missing_number_bedroom,
+    SUM(CASE WHEN number_bathroom IS NULL OR number_bathroom = '' THEN 1 ELSE 0 END) AS missing_number_bathroom,
+    SUM(CASE WHEN number_floor IS NULL OR number_floor = '' THEN 1 ELSE 0 END) AS missing_number_floor,
+    SUM(CASE WHEN way_in IS NULL OR way_in = '' THEN 1 ELSE 0 END) AS missing_way_in,
+    SUM(CASE WHEN post_start_time IS NULL OR post_start_time = '' THEN 1 ELSE 0 END) AS missing_post_start_time,
+    SUM(CASE WHEN post_end_time IS NULL OR post_end_time = '' THEN 1 ELSE 0 END) AS missing_post_end_time,
+    SUM(CASE WHEN post_type IS NULL OR post_type = '' THEN 1 ELSE 0 END) AS missing_post_type,
+
+    -- Kiểm tra định dạng giá không hợp lệ
+    SUM(CASE WHEN clean_price(price) IS NULL THEN 1 ELSE 0 END) AS invalid_price_format,
+
+    -- Kiểm tra diện tích không hợp lệ
+    SUM(CASE WHEN clean_area(area) IS NULL THEN 1 ELSE 0 END) AS invalid_area_format,
+
+    -- Giá bất thường
+    SUM(
+        CASE WHEN clean_price(price) IS NOT NULL 
+        AND clean_price(price) < 200000000 
+        THEN 1 ELSE 0 END
+    ) AS suspicious_low_price,
+
+    SUM(
+        CASE WHEN clean_price(price) IS NOT NULL 
+        AND clean_price(price) > 200000000000 
+        THEN 1 ELSE 0 END
+    ) AS suspicious_high_price,
+
+    -- Diện tích bất thường
+    SUM(
+        CASE WHEN clean_area(area) IS NOT NULL 
+        AND clean_area(area) < 10 
+        THEN 1 ELSE 0 END
+    ) AS suspicious_small_area,
+
+    SUM(
+        CASE WHEN clean_area(area) IS NOT NULL 
+        AND clean_area(area) > 2000 
+        THEN 1 ELSE 0 END
+    ) AS suspicious_large_area
+FROM bronze.staging
+GROUP BY DATE(crawled_at)
+ORDER BY crawl_date DESC;
+
+
+-- gọi vỉew quality check 
+SELECT * FROM bronze.qc_daily_overview;
+Select * from bronze.staging
+--
