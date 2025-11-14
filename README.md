@@ -25,8 +25,10 @@ Dữ liệu được lưu vào `data/raw/` với định dạng timestamped CSV 
 - **Web Scraping**: nodriver 0.47.0 (thư viện chống phát hiện bot, successor của undetected-chromedriver)
 - **Xử lý dữ liệu**: pandas 2.3.3, numpy 2.3.4
 - **Async**: asyncio (built-in) cho concurrent processing
-- **Lưu trữ**: CSV files
+- **Database**: Supabase (PostgREST API)
+- **Lưu trữ**: CSV files + Supabase staging/silver layers
 - **Logging**: Python logging module
+- **CI/CD**: GitHub Actions (scheduled automation 4 lần/ngày)
 - **Môi trường**: Virtual environment (venv)
 
 ## 🚀 Cài đặt
@@ -50,6 +52,32 @@ venv\Scripts\activate
 ```bash
 pip install -r requirements\requirements.txt
 ```
+
+## 📊 Trạng thái hiện tại
+
+### Tiến độ ETL Pipeline
+
+| Module | Trạng thái | Chi tiết |
+|--------|-----------|---------|
+| **Extract** | ✅ Hoàn thành | Scraping dữ liệu từ batdongsan.com.vn hoạt động ổn định với 25+ fields. Được tự động hóa qua GitHub Actions (4 lần/ngày) |
+| **Transform** | 🔄 Đang phát triển | Đang xây dựng logic chuyển đổi: dedup, upsert, trích xuất page number từ URL |
+| **Load** | 🟡 Đang hoàn thiện | Load sang staging (Supabase) + Silver layer - cần test kỹ lưỡng |
+| **Gold Layer** | ⏳ Kế hoạch | Chuẩn bị cho data warehouse layer |
+
+### Dữ liệu mới nhất
+- **Dữ liệu cuối cùng**: 07/11/2025 - 05:10 (lần chạy sáng)
+- **Số lượng bản ghi**: ~80 listings/lần crawl
+- **Thời gian lưu trữ**: CSV timestamped trong `data/processed/`
+- **Automation**: Chạy tự động 4 lần/ngày (5h, 11h, 17h, 23h UTC+7)
+
+### Công việc ưu tiên tiếp theo
+1. ✅ Hoàn thiện transform logic (dedup + upsert)
+2. 🔄 Fix & test load staging module (nodriver compatibility issue)
+3. ⏳ Implement load gold layer
+4. ⏳ Thêm unit tests + integration tests
+5. ⏳ Tối ưu concurrency settings
+
+---
 
 ## 📝 Sử dụng
 
@@ -95,6 +123,9 @@ BDS/
 │   └── test.ipynb        # Notebook test (ví dụ)
 ├── requirements/         # Dependencies
 │   └── requirements.txt  # Danh sách packages
+├── .github/              # GitHub automation
+│   └── workflows/
+│       └── daily-etl.yml # Scheduled ETL job
 ├── src/                  # Source code chính
 │   ├── __init__.py
 │   ├── extract/          # Module extract dữ liệu
@@ -103,9 +134,15 @@ BDS/
 │   │   ├── crawl.py      # Logic chính scraper
 │   │   ├── utils.py      # Utility functions
 │   │   └── README.md     # Docs cho extract module
-│   ├── load/             # Module load dữ liệu (placeholder)
-│   ├── transform/        # Module transform (placeholder)
-│   └── tests/            # Tests cho src (placeholder)
+│   ├── load/             # Module load dữ liệu
+│   │   ├── __init__.py
+│   │   ├── load_staging.py   # Load sang staging layer
+│   │   ├── load_silver.py    # Load sang silver layer
+│   │   ├── load_gold.py      # Load sang gold layer (WIP)
+│   │   ├── supabase_class.py # Supabase integration
+│   │   └── README.md         # Docs cho load module
+│   ├── transform/        # Module transform dữ liệu
+│   │   └── documentation/    # Transform logic documentation
 ├── tests/                # Tests toàn dự án (placeholder)
 ├── venv/                 # Virtual environment
 ├── LICENSE               # MIT License
