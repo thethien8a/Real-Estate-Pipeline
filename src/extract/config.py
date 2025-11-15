@@ -14,30 +14,16 @@ class CrawlConfig:
     
     # Trang kết thúc thu thập
     END_PAGE = 3
-
-    BROWSER_EXECUTABLE = "/usr/bin/google-chrome-stable"
     
     BROWSER_ARGS = [
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--window-size=1366,768",
-        "--lang=vi-VN",
-        "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "--no-first-run",
-        "--disable-blink-features=AutomationControlled",  
-        "--disable-extensions",                           
-        "--disable-background-networking",                
-        "--disable-sync",                                 
-        "--metrics-recording-only",                       
-        "--disable-default-apps",                         
-        "--mute-audio",
-        "--enable-logging=stderr"
+    '--no-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--disable-setuid-sandbox',
+    '--window-size=1366,768',
+    '--lang=vi-VN',
+    '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     ]
-
-    USER_DATA_DIR = os.getenv(
-        "CHROME_USER_DATA_DIR",
-        str(Path(tempfile.gettempdir()) / "nodriver-profile")
-    )
 
     STEALTH_EVASION_SCRIPT = """
     // Xóa webdriver property
