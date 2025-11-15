@@ -7,7 +7,7 @@ from pathlib import Path
 class CrawlConfig:
     
     # Semaphore cho subpage - giới hạn số lượng subpage được xử lý đồng thời cho mỗi main page
-    SUBPAGE_SEMAPHORE_LIMIT = 20
+    SUBPAGE_SEMAPHORE_LIMIT = 10
     
     # Trang bắt đầu thu thập
     START_PAGE = 1
