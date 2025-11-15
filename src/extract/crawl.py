@@ -46,6 +46,7 @@ async def start_browser():
         raise
 
 
+
 async def apply_stealth_and_wait(page):
     await page.evaluate(CrawlConfig.STEALTH_EVASION_SCRIPT)
     await asyncio.sleep(5)
