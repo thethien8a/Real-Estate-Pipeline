@@ -28,7 +28,7 @@ async def start_browser():
     try:
         # user_data_dir = Path(CrawlConfig.USER_DATA_DIR)
         # user_data_dir.mkdir(parents=True, exist_ok=True)
-        logger.debug(f"Using Chrome user data dir: {user_data_dir}")
+        # logger.debug(f"Using Chrome user data dir: {user_data_dir}")
 
         browser = await uc.start(
             headless=True,
