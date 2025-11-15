@@ -25,25 +25,47 @@ BASE_URL = "https://batdongsan.com.vn"
 START = "/nha-dat-ban/"
 
 async def start_browser():
-    try:
-        user_data_dir = Path(CrawlConfig.USER_DATA_DIR)
-        user_data_dir.mkdir(parents=True, exist_ok=True)
-        logger.debug(f"Using Chrome user data dir: {user_data_dir}")
+    """
+    Start browser with retry logic to handle slow startup in CI environments.
+    Retries up to 3 times with increasing delays.
+    """
+    max_retries = 3
+    retry_delay = 5  # seconds
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            user_data_dir = Path(CrawlConfig.USER_DATA_DIR)
+            user_data_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Attempt {attempt}/{max_retries}: Starting browser...")
+            logger.debug(f"Using Chrome user data dir: {user_data_dir}")
 
-        browser = await uc.start(
-            headless=True,
-            no_sandbox=True,
-            browser_executable_path= CrawlConfig.BROWSER_EXECUTABLE,
-            browser_args=CrawlConfig.BROWSER_ARGS,
-            user_data_dir=str(user_data_dir),
-        )
-        if not getattr(browser, "connection", None):
-            raise RuntimeError("Browser started but connection is None")
-        logger.info("Browser started successfully")
-        return browser
-    except Exception as exc:
-        logger.error(f"Failed to start browser: {exc}")
-        raise
+            browser = await uc.start(
+                headless=True,
+                no_sandbox=True,
+                browser_executable_path=CrawlConfig.BROWSER_EXECUTABLE,
+                browser_args=CrawlConfig.BROWSER_ARGS,
+                user_data_dir=str(user_data_dir),
+            )
+            
+            # Wait a bit for connection to stabilize
+            await asyncio.sleep(2)
+            
+            if not getattr(browser, "connection", None):
+                raise RuntimeError("Browser started but connection is None")
+            
+            logger.info(f"✅ Browser started successfully on attempt {attempt}")
+            return browser
+            
+        except Exception as exc:
+            logger.warning(f"❌ Attempt {attempt}/{max_retries} failed: {exc}")
+            
+            if attempt < max_retries:
+                wait_time = retry_delay * attempt
+                logger.info(f"⏳ Waiting {wait_time}s before retry...")
+                await asyncio.sleep(wait_time)
+            else:
+                logger.error(f"Failed to start browser after {max_retries} attempts")
+                raise
 
 
 async def apply_stealth_and_wait(page):

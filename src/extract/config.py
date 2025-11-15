@@ -33,9 +33,9 @@ class CrawlConfig:
         "--disable-sync",                                 
         "--metrics-recording-only",                       
         "--disable-default-apps",                         
-        "--mute-audio",                                   
-        "--no-zygote",                                    
-        "--single-process",                               
+        "--mute-audio",
+        "--disable-web-security",  
+        "--disable-features=VizDisplayCompositor",  
     ]
 
     USER_DATA_DIR = os.getenv(
