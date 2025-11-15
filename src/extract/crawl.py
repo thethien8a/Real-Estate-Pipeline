@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import shutil
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 import nodriver as uc
@@ -28,7 +30,18 @@ START = "/nha-dat-ban/"
 
 async def start_browser():
     try:
-        user_data_dir = Path(CrawlConfig.USER_DATA_DIR)
+        temp_profile_dir = None
+        if CrawlConfig.USER_DATA_DIR:
+            user_data_dir = Path(CrawlConfig.USER_DATA_DIR)
+        else:
+            temp_profile_dir = Path(
+                tempfile.mkdtemp(
+                    prefix=CrawlConfig.TEMP_PROFILE_PREFIX,
+                    dir=str(CrawlConfig.TEMP_PROFILE_BASE_DIR),
+                )
+            )
+            user_data_dir = temp_profile_dir
+
         user_data_dir.mkdir(parents=True, exist_ok=True)
         logger.debug(f"Using Chrome user data dir: {user_data_dir}")
 
@@ -42,9 +55,16 @@ async def start_browser():
         if not getattr(browser, "connection", None):
             raise RuntimeError("Browser started but connection is None")
         logger.info("Browser started successfully")
-        return browser
+        return browser, temp_profile_dir
     except Exception as exc:
         logger.error(f"Failed to start browser: {exc}")
+        if CrawlConfig.USER_DATA_DIR is None:
+            # temp_profile_dir may still hold partially created data; clean up
+            try:
+                if temp_profile_dir:
+                    shutil.rmtree(temp_profile_dir, ignore_errors=True)
+            except Exception as cleanup_error:
+                logger.debug(f"Failed to cleanup temp profile after error: {cleanup_error}")
         raise
 
 
@@ -218,7 +238,9 @@ async def main():
 
     logger.info(f"Đang xử lý {len(main_urls)} main page: {main_urls}")
 
-    browser = await start_browser()
+    browser = None
+    temp_profile_dir = None
+    browser, temp_profile_dir = await start_browser()
     main_page_results = {url: [] for url in main_urls}
     try:
         all_subpage_refs: List[Tuple[str, str]] = []
@@ -257,10 +279,13 @@ async def main():
         logger.info("Đã hoàn thành cào dữ liệu với mô hình batch subpage")
         return final_payload
     finally:
-        try:
-            await browser.stop()
-        except Exception as stop_error:
-            logger.debug(f"Browser stop error: {stop_error}")
+        if browser:
+            try:
+                await browser.stop()
+            except Exception as stop_error:
+                logger.debug(f"Browser stop error: {stop_error}")
+        if temp_profile_dir:
+            shutil.rmtree(temp_profile_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":
