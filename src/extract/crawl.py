@@ -29,8 +29,8 @@ async def start_browser():
     try:
         browser = await uc.start(
             headless=True,
-            # no_sandbox=True,
-            # browser_executable_path=CrawlConfig.BROWSER_EXECUTABLE,
+            no_sandbox=True,
+            browser_executable_path=CrawlConfig.BROWSER_EXECUTABLE,
             browser_args=CrawlConfig.BROWSER_ARGS,
         )
         if not getattr(browser, "connection", None):
