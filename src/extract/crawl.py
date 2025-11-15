@@ -163,7 +163,7 @@ async def scrape_main_page(url: str, page_semaphore: asyncio.Semaphore, subpage_
         try:
             browser = await uc.start(
                 headless=True,
-                no_sandbox=True,
+                # no_sandbox=True,
                 browser_executable_path="/usr/bin/google-chrome-stable",
                 browser_args=browser_args
             )
