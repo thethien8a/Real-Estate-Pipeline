@@ -23,8 +23,6 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "https://batdongsan.com.vn"
 START = "/nha-dat-ban/"
-BROWSER_EXECUTABLE = "/usr/bin/google-chrome-stable"
-
 
 async def start_browser():
     try:
@@ -35,7 +33,7 @@ async def start_browser():
         browser = await uc.start(
             headless=True,
             no_sandbox=True,
-            browser_executable_path=BROWSER_EXECUTABLE,
+            browser_executable_path= CrawlConfig.BROWSER_EXECUTABLE,
             browser_args=CrawlConfig.BROWSER_ARGS,
             user_data_dir=str(user_data_dir),
         )

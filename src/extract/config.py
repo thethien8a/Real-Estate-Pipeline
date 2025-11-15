@@ -15,6 +15,7 @@ class CrawlConfig:
     # Trang kết thúc thu thập
     END_PAGE = 3
 
+    BROWSER_EXECUTABLE = "/usr/bin/google-chrome-stable"
     
     BROWSER_ARGS = [
         "--no-sandbox",
