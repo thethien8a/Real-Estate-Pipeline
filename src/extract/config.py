@@ -29,9 +29,10 @@ class CrawlConfig:
         "--no-first-run",
     ]
 
-    USER_DATA_DIR = os.getenv("CHROME_USER_DATA_DIR")
-    TEMP_PROFILE_BASE_DIR = Path(tempfile.gettempdir())
-    TEMP_PROFILE_PREFIX = "nodriver-profile-"
+    USER_DATA_DIR = os.getenv(
+        "CHROME_USER_DATA_DIR",
+        str(Path(tempfile.gettempdir()) / "nodriver-profile")
+    )
 
     STEALTH_EVASION_SCRIPT = """
     // Xóa webdriver property
