@@ -16,7 +16,6 @@ class CrawlConfig:
     END_PAGE = 3
 
     
-    BROWSER_EXECUTABLE = "/usr/bin/google-chrome-stable"
     BROWSER_ARGS = [
         "--no-sandbox",
         "--disable-dev-shm-usage",
