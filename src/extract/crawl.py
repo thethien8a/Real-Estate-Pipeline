@@ -1,8 +1,6 @@
 import asyncio
 import logging
-import os
 from datetime import datetime, timezone
-from pathlib import Path
 import nodriver as uc
 from utils import (
     extract_value_from_specs,
@@ -12,12 +10,10 @@ from utils import (
     save_results_to_csv,
     wait_for_content_load,
 )
-from typing import Optional
+from typing import Optional, List, Tuple
 from nodriver.core.connection import ProtocolException
-from config import get_page_semaphore, get_subpage_semaphore, CrawlConfig
+from config import get_subpage_semaphore, CrawlConfig
 
-
-# Thiết lập logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -27,7 +23,41 @@ logger = logging.getLogger(__name__)
 BASE_URL = "https://batdongsan.com.vn"
 START = "/nha-dat-ban/"
 
-RAW_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "raw"
+
+
+async def start_browser():
+    try:
+        browser = await uc.start(
+            headless=True,
+            # no_sandbox=True,
+            # browser_executable_path=CrawlConfig.BROWSER_EXECUTABLE,
+            browser_args=CrawlConfig.BROWSER_ARGS,
+        )
+        if not getattr(browser, "connection", None):
+            raise RuntimeError("Browser started but connection is None")
+        logger.info("Browser started successfully")
+        return browser
+    except Exception as exc:
+        logger.error(f"Failed to start browser: {exc}")
+        raise
+
+
+async def apply_stealth_and_wait(page):
+    await page.evaluate(CrawlConfig.STEALTH_EVASION_SCRIPT)
+    await asyncio.sleep(5)
+
+
+def build_main_page_payload(main_page_results: dict):
+    payload = []
+    for main_url, subpages in main_page_results.items():
+        payload.append(
+            {
+                "main_page_url": main_url,
+                "subpage_count": len(subpages),
+                "subpage_data": subpages,
+            }
+        )
+    return payload
 
 
 async def extract_subpage_urls(page):
@@ -93,7 +123,7 @@ async def extract_data_from_page(page):
     return item
     
 
-async def scrape_subpage(url: str, subpage_semaphore: asyncio.Semaphore, browser):
+async def scrape_subpage(main_page_url: str, url: str, subpage_semaphore: asyncio.Semaphore, browser):
     """
     Hàm xử lý một subpage
     """
@@ -139,198 +169,92 @@ async def scrape_subpage(url: str, subpage_semaphore: asyncio.Semaphore, browser
                 "error": "empty_item"
             }
 
+        item["main_page_url"] = main_page_url
         logger.info(f"  Đã hoàn thành subpage: {url}")
         return item
 
-async def scrape_main_page(url: str, page_semaphore: asyncio.Semaphore, subpage_semaphore: asyncio.Semaphore):
-    """
-    Hàm xử lý một main page và các subpage của nó
-    """
-    async with page_semaphore:  
-        logger.info(f"Đang xử lý main page: {url}")
-        
-        # Khởi tạo browser và mở page với các tùy chọn chống phát hiện
-        browser_args = [
-            '--no-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--disable-setuid-sandbox',
-            '--window-size=1366,768',
-            '--lang=vi-VN',
-            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        ]
-        
-        try:
-            browser = await uc.start(
-                headless=True,
-                # no_sandbox=True,
-                browser_executable_path="/usr/bin/google-chrome-stable",
-                browser_args=browser_args
-            )
-            # Kiểm tra connection có hợp lệ không
-            if not getattr(browser, "connection", None):
-                raise RuntimeError("Browser started but connection is None")
-            logger.info("Browser started successfully in CI")
-        except Exception as e:
-            logger.warning(f"Failed to start browser: {e}")
-            raise RuntimeError(f"Failed to start browser") from e
-        
-        page = await browser.get(url)
-        
-        # Thêm đoạn mã giả mạo các thuộc tính đặc trưng của bot
-        await page.evaluate(
-            """
-            // Xóa webdriver property
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => undefined,
-            });
-            
-            // Tạo plugin array giả
-            Object.defineProperty(navigator, 'plugins', {
-                get: () => {
-                    const pluginArray = [
-                        { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-                        { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
-                        { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' }
-                    ];
-                    pluginArray.length = 3;
-                    return pluginArray;
-                },
-            });
-            
-            // Tạo ngôn ngữ giả
-            Object.defineProperty(navigator, 'languages', {
-                get: () => ['vi-VN', 'vi', 'en-US', 'en'],
-            });
-            
-            // Thêm thuộc tính missing
-            Object.defineProperty(navigator, 'vendor', {
-                get: () => 'Google Inc.',
-            });
-            
-            // Thêm thuộc tính webdriver giả
-            Object.defineProperty(navigator, 'userAgent', {
-                get: () => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            });
-            
-            // Thêm window.chrome giả
-            if (window.chrome) {
-                window.chrome.runtime = {
-                    connect: () => {},
-                    sendMessage: () => {}
-                };
-            } else {
-                Object.defineProperty(window, 'chrome', {
-                    value: {
-                        runtime: {
-                            connect: () => {},
-                            sendMessage: () => {}
-                        }
-                    },
-                    writable: true
-                });
-            }
-            
-            // Giả lập webgl
-            const originalWebgl = WebGLRenderingContext.prototype.getParameter;
-            WebGLRenderingContext.prototype.getParameter = function(parameter) {
-                if (parameter === 37445) return 'Intel Inc.';
-                if (parameter === 37446) return 'Intel Iris OpenGL Engine';
-                return originalWebgl.call(this, parameter);
-            };
-            
-            // Giả lập canvas
-            const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
-            HTMLCanvasElement.prototype.toDataURL = function() {
-                // Thêm nhiễu ngẫu nhiên vào canvas để tránh phát hiện
-                return originalToDataURL.apply(this, arguments);
-            };
-            """
-        )
-        
-        # Chờ ngẫu nhiên để mô phỏng hành vi người dùng thật
-        await asyncio.sleep(5)
-        
-        # Lấy danh sách subpage từ main page này
-        subpage_urls = await extract_subpage_urls(page)
-        
-        logger.info(f"Tìm thấy {len(subpage_urls)} subpage từ {url}")
-        
-        if len(subpage_urls) > 0:
-            # Cào các subpage với giới hạn 10 subpage đồng thời
-            subpage_tasks = []
-            for subpage_url in subpage_urls:
-                task = scrape_subpage(subpage_url, subpage_semaphore, browser)
-                subpage_tasks.append(task)
-            subpage_results_raw = await asyncio.gather(*subpage_tasks, return_exceptions=True)
 
-            subpage_results = []
-            for result in subpage_results_raw:
-                if isinstance(result, Exception):
-                    logger.warning(f"Subpage task exception: {result}")
-                    subpage_results.append({
-                        "url": url,
-                        "source": "batdongsan.com.vn",
-                        "error": "subpage_task_exception"
-                    })
-                else:
-                    subpage_results.append(result)
-        else:
-            subpage_results = []
-        
+async def collect_subpage_urls(browser, main_url: str) -> List[str]:
+    """
+    Mở main page và thu thập toàn bộ subpage URL
+    """
+    logger.info(f"Đang thu thập subpage từ main page: {main_url}")
+    page = await browser.get(main_url, new_tab=True)
+    try:
+        await apply_stealth_and_wait(page)
+        subpage_urls = await extract_subpage_urls(page)
+        logger.info(f"Tìm thấy {len(subpage_urls)} subpage từ {main_url}")
+        return subpage_urls
+    except Exception as exc:
+        logger.warning(f"Không thể thu thập subpage từ {main_url}: {exc}")
+        return []
+    finally:
         try:
-            await browser.stop()
-        except Exception as e:
-            logger.debug(f"Browser stop error: {e}")
-        
-    logger.info(f"Đã hoàn thành main page: {url} với {len(subpage_results)} subpage")
-    return {
-            "main_page_url": url,
-            "subpage_count": len(subpage_results),
-            "subpage_data": subpage_results
-        }
+            await page.close()
+        except Exception as close_error:
+            logger.debug(f"Không thể đóng main page {main_url}: {close_error}")
 
 async def main():
     """
     Hàm chính để chạy toàn bộ quá trình cào dữ liệu
     """
     logger.info("Bắt đầu quá trình cào dữ liệu")
-    
-    # Giới hạn số page cào đồng thời
-    page_semaphore = get_page_semaphore()
-    
-    # Giới hạn số subpage cào đồng thời
+
     subpage_semaphore = get_subpage_semaphore()
-    
-    # Trang bắt đầu thu thập
+
     start_page = CrawlConfig.START_PAGE
-    
-    # Trang kết thúc thu thập
     end_page = CrawlConfig.END_PAGE
-    
+
     main_urls = [f"{BASE_URL}{START}p{i}" for i in range(start_page, end_page + 1)]
-    
+    if not main_urls:
+        logger.warning("Không có main page nào để xử lý")
+        return []
+
     logger.info(f"Đang xử lý {len(main_urls)} main page: {main_urls}")
-    
-    # Tạo task cho mỗi main page
-    tasks = []
-    for url in main_urls:
-        task = scrape_main_page(url, page_semaphore, subpage_semaphore)
-        tasks.append(task)
 
-    # Chạy tất cả các task với giới hạn 4 main page đồng thời
-    all_results_raw = await asyncio.gather(*tasks, return_exceptions=True)
-    all_results = []
-    for result in all_results_raw:
-        if isinstance(result, Exception):
-            logger.warning(f"Main page task exception: {result}")
-        else:
-            all_results.append(result)
+    browser = await start_browser()
+    main_page_results = {url: [] for url in main_urls}
+    try:
+        all_subpage_refs: List[Tuple[str, str]] = []
+        for url in main_urls:
+            subpage_urls = await collect_subpage_urls(browser, url)
+            if not subpage_urls:
+                logger.info(f"Không tìm thấy subpage nào cho {url}")
+            for subpage_url in subpage_urls:
+                all_subpage_refs.append((url, subpage_url))
 
-    logger.info(f"Đã hoàn thành cào dữ liệu từ {len(all_results)} main page")
+        logger.info(f"Tổng cộng {len(all_subpage_refs)} subpage sẽ được xử lý")
 
-    
-    save_results_to_csv(all_results)
+        if not all_subpage_refs:
+            logger.warning("Không tìm thấy subpage nào để cào.")
+            final_payload = build_main_page_payload(main_page_results)
+            return final_payload
+
+        subpage_tasks = [
+            scrape_subpage(main_url, sub_url, subpage_semaphore, browser)
+            for main_url, sub_url in all_subpage_refs
+        ]
+
+        subpage_results_raw = await asyncio.gather(*subpage_tasks, return_exceptions=True)
+        for result in subpage_results_raw:
+            if isinstance(result, Exception):
+                logger.warning(f"Subpage task exception: {result}")
+            else:
+                parent_url = result.get("main_page_url")
+                if parent_url in main_page_results:
+                    main_page_results[parent_url].append(result)
+                else:
+                    logger.debug(f"Không tìm thấy main_page_url cho subpage: {result}")
+
+        final_payload = build_main_page_payload(main_page_results)
+        save_results_to_csv(final_payload)
+        logger.info("Đã hoàn thành cào dữ liệu với mô hình batch subpage")
+        return final_payload
+    finally:
+        try:
+            await browser.stop()
+        except Exception as stop_error:
+            logger.debug(f"Browser stop error: {stop_error}")
 
 
 if __name__ == "__main__":
