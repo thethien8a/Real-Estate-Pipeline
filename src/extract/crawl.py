@@ -23,6 +23,15 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "https://batdongsan.com.vn"
 START = "/nha-dat-ban/"
+BROWSER_ARGS = [
+'--no-sandbox',
+'--disable-dev-shm-usage',
+'--disable-gpu',
+'--disable-setuid-sandbox',
+'--window-size=1366,768',
+'--lang=vi-VN',
+'--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+]
 
 async def start_browser():
     try:
@@ -34,8 +43,7 @@ async def start_browser():
             headless=True,
             no_sandbox=True,
             browser_executable_path= "/usr/bin/google-chrome-stable",
-            browser_args=CrawlConfig.BROWSER_ARGS,
-            # user_data_dir=str(user_data_dir),
+            browser_args=BROWSER_ARGS
         )
         if not getattr(browser, "connection", None):
             raise RuntimeError("Browser started but connection is None")
