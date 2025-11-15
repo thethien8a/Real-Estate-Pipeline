@@ -6,7 +6,7 @@ from supabase import create_client, Client
 from supabase.client import ClientOptions
 from dotenv import load_dotenv
 
-# load_dotenv()
+load_dotenv()
 
 class SupabaseManager:
     def __init__(self, url: str = None, key: str = None, default_schema: Optional[str] = None):
@@ -19,6 +19,7 @@ class SupabaseManager:
         """
         self.url = url or os.environ.get("SUPABASE_URL")
         self.key = key or os.environ.get("SUPABASE_KEY")
+        
         self.default_schema = default_schema
         # cache client instances per schema for flexible multi-schema usage
         self._clients: Dict[Optional[str], Client] = {}
