@@ -1,4 +1,7 @@
 import asyncio
+import os
+import tempfile
+from pathlib import Path
 
 
 class CrawlConfig:
@@ -22,7 +25,15 @@ class CrawlConfig:
         "--window-size=1366,768",
         "--lang=vi-VN",
         "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "--remote-debugging-port=0",
+        "--disable-software-rasterizer",
+        "--no-first-run",
     ]
+
+    USER_DATA_DIR = os.getenv(
+        "CHROME_USER_DATA_DIR",
+        str(Path(tempfile.gettempdir()) / "nodriver-profile")
+    )
 
     STEALTH_EVASION_SCRIPT = """
     // Xóa webdriver property
