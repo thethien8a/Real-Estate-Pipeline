@@ -26,8 +26,8 @@ START = "/nha-dat-ban/"
 
 async def start_browser():
     try:
-        user_data_dir = Path(CrawlConfig.USER_DATA_DIR)
-        user_data_dir.mkdir(parents=True, exist_ok=True)
+        # user_data_dir = Path(CrawlConfig.USER_DATA_DIR)
+        # user_data_dir.mkdir(parents=True, exist_ok=True)
         logger.debug(f"Using Chrome user data dir: {user_data_dir}")
 
         browser = await uc.start(
@@ -35,7 +35,7 @@ async def start_browser():
             no_sandbox=False,
             browser_executable_path= CrawlConfig.BROWSER_EXECUTABLE,
             browser_args=CrawlConfig.BROWSER_ARGS,
-            user_data_dir=str(user_data_dir),
+            # user_data_dir=str(user_data_dir),
         )
         if not getattr(browser, "connection", None):
             raise RuntimeError("Browser started but connection is None")

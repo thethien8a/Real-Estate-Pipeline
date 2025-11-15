@@ -67,6 +67,12 @@ jobs:
           which google-chrome-stable
           google-chrome-stable --version
           echo "Chrome installed successfully"
+
+      - name: Fix Chrome sandbox permissions
+        run: |
+          sudo chown root:root /opt/google/chrome/chrome-sandbox
+          sudo chmod 4755 /opt/google/chrome/chrome-sandbox
+          ls -l /opt/google/chrome/chrome-sandbox
           
       - name: Install dependencies
         run: |
