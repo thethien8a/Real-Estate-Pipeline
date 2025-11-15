@@ -11,7 +11,7 @@ class CrawlConfig:
     
     # Trang bắt đầu thu thập
     START_PAGE = 1
-    
+     
     # Trang kết thúc thu thập
     END_PAGE = 3
     
