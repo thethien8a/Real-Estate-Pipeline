@@ -54,10 +54,7 @@ jobs:
             libpango-1.0-0 \
             libcairo2 \
             libasound2 \
-            libatspi2.0-0 \
-            libxshmfence1 \
-            fonts-liberation \
-            xdg-utils
+            libatspi2.0-0
             
       - name: Install Chrome
         uses: browser-actions/setup-chrome@latest

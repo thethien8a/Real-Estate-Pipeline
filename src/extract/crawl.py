@@ -25,53 +25,25 @@ BASE_URL = "https://batdongsan.com.vn"
 START = "/nha-dat-ban/"
 
 async def start_browser():
-    """
-    Start browser with retry logic to handle slow startup in CI environments.
-    Retries up to 5 times with increasing delays (total max wait: ~60s).
-    Based on research: Cypress needs 50s+, Pydoll default timeout is 20s.
-    """
-    max_retries = 5
-    retry_delay = 8  # seconds (will escalate: 8s → 16s → 24s → 32s → 40s)
-    
-    for attempt in range(1, max_retries + 1):
-        try:
-            user_data_dir = Path(CrawlConfig.USER_DATA_DIR)
-            user_data_dir.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Attempt {attempt}/{max_retries}: Starting browser...")
-            logger.debug(f"Using Chrome user data dir: {user_data_dir}")
+    try:
+        user_data_dir = Path(CrawlConfig.USER_DATA_DIR)
+        user_data_dir.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Using Chrome user data dir: {user_data_dir}")
 
-            browser = await uc.start(
-                headless=True,
-                no_sandbox=True,
-                browser_executable_path=CrawlConfig.BROWSER_EXECUTABLE,
-                browser_args=CrawlConfig.BROWSER_ARGS,
-                user_data_dir=str(user_data_dir),
-            )
-            
-            # Wait a bit for connection to stabilize
-            await asyncio.sleep(2)
-            
-            if not getattr(browser, "connection", None):
-                raise RuntimeError("Browser started but connection is None")
-            
-            logger.info(f"✅ Browser started successfully on attempt {attempt}/{max_retries}")
-            return browser
-            
-        except Exception as exc:
-            error_msg = str(exc)
-            logger.warning(f"❌ Attempt {attempt}/{max_retries} failed: {error_msg}")
-            
-            if attempt < max_retries:
-                wait_time = retry_delay * attempt
-                total_waited = sum(retry_delay * i for i in range(1, attempt + 1))
-                logger.info(f"⏳ Waiting {wait_time}s before retry (total waited: {total_waited}s)...")
-                await asyncio.sleep(wait_time)
-            else:
-                total_time = sum(retry_delay * i for i in range(1, max_retries + 1))
-                logger.error(f"💥 Failed to start browser after {max_retries} attempts (~{total_time}s total)")
-                logger.error("This typically happens in resource-constrained CI environments.")
-                logger.error("Check GitHub Actions runner logs for Chrome process issues.")
-                raise
+        browser = await uc.start(
+            headless=True,
+            no_sandbox=True,
+            browser_executable_path= CrawlConfig.BROWSER_EXECUTABLE,
+            browser_args=CrawlConfig.BROWSER_ARGS,
+            user_data_dir=str(user_data_dir),
+        )
+        if not getattr(browser, "connection", None):
+            raise RuntimeError("Browser started but connection is None")
+        logger.info("Browser started successfully")
+        return browser
+    except Exception as exc:
+        logger.error(f"Failed to start browser: {exc}")
+        raise
 
 
 async def apply_stealth_and_wait(page):
