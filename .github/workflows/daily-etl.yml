@@ -1,18 +1,18 @@
 name: Daily ETL 
 
 on:
-  push:
-    branches: [ main ]
+  # push:
+  #   branches: [ main ]
 
   schedule:
     # Chạy 12h đêm 
     - cron: "0 17 * * *"
-    # Chạy 6h sáng 
-    - cron: "0 23 * * *"
+    # # Chạy 6h sáng 
+    # - cron: "0 23 * * *"
     # Chạy 12h trưa 
     - cron: "0 5 * * *"
-    # Chạy 6h chiều 
-    - cron: "0 11 * * *"
+    # # Chạy 6h chiều 
+    # - cron: "0 11 * * *"
 
   workflow_dispatch: # Cho phép chạy tay từ GitHub UI
 
