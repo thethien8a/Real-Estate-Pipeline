@@ -27,6 +27,15 @@ class CrawlConfig:
         "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "--disable-software-rasterizer",
         "--no-first-run",
+        "--disable-blink-features=AutomationControlled",  
+        "--disable-extensions",                           
+        "--disable-background-networking",                
+        "--disable-sync",                                 
+        "--metrics-recording-only",                       
+        "--disable-default-apps",                         
+        "--mute-audio",                                   
+        "--no-zygote",                                    
+        "--single-process",                               
     ]
 
     USER_DATA_DIR = os.getenv(
