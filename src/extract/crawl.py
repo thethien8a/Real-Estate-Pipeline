@@ -32,7 +32,7 @@ async def start_browser():
 
         browser = await uc.start(
             headless=True,
-            no_sandbox=True,
+            no_sandbox=False,
             browser_executable_path= CrawlConfig.BROWSER_EXECUTABLE,
             browser_args=CrawlConfig.BROWSER_ARGS,
             user_data_dir=str(user_data_dir),
