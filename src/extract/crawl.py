@@ -1,9 +1,6 @@
 import asyncio
 import logging
-import os
-import shutil
 from datetime import datetime, timezone
-from pathlib import Path
 import nodriver as uc
 from utils import (
     extract_value_from_specs,

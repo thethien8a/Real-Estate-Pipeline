@@ -106,48 +106,40 @@ async def wait_for_content_load(
 
     await asyncio.sleep(3.0)
 
-
-async def text_from_selector(page, selector: str, attempts: int = 3, delay: float = 3) -> Optional[str]:
+async def text_from_selector(page, selector: str) -> Optional[str]:
     """
     Extract text from selector using JavaScript to avoid RemoteObject issues.
-    Includes retry logic with delay for asynchronously loaded content.
     """
-    for attempt in range(attempts):
-        try:
-            # Use JavaScript to extract text directly in browser
-            js_code = f"""
-            (function() {{
-                const selector = {repr(selector)};
-                const element = document.querySelector(selector);
-                
-                if (element) {{
-                    const text = element.textContent || element.innerText || '';
-                    const trimmed = text.trim();
-                    return trimmed || null;
-                }}
-                
-                return null;
-            }})();
-            """
+    try:
+        # Use JavaScript to extract text directly in browser
+        js_code = f"""
+        (function() {{
+            const selector = {repr(selector)};
+            const element = document.querySelector(selector);
             
-            result = await page.evaluate(js_code, return_by_value=True)
+            if (element) {{
+                const text = element.textContent || element.innerText || '';
+                const trimmed = text.trim();
+                return trimmed || null;
+            }}
             
-            # Handle RemoteObject fallback
-            if hasattr(result, 'value'):
-                result = result.value
+            return null;
+        }})();
+        """
+        
+        result = await page.evaluate(js_code, return_by_value=True)
+        
+        # Handle RemoteObject fallback
+        if hasattr(result, 'value'):
+            result = result.value
+        
+        if result:
+            return str(result)
             
-            if result:
-                return str(result)
-                
-        except Exception as e:
-            logger.debug(f"Attempt {attempt+1} failed for selector '{selector}': {e}")
-            await page.reload()
-            
-        if attempt < attempts - 1:
-            await page.reload()
-            await asyncio.sleep(delay)
+    except Exception as e:
+        logger.debug(f"Failed for selector '{selector}': {e}")
 
-    logger.warning(f"Not found selector '{selector}' after {attempts} attempts for page {page.url}")
+    logger.warning(f"Not found selector '{selector}' for page {page.url}")
     return None
 
 
