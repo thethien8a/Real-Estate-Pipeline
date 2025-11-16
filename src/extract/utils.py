@@ -157,9 +157,6 @@ async def extract_value_from_specs(page, label: str, default: str = "") -> str:
     This approach processes data in browser and returns only the needed value.
     """
     try:
-        # Build JavaScript code with embedded parameters
-        # nodriver only accepts JavaScript string, not function with parameters
-        # IMPORTANT: Must return string, not undefined/null to avoid RemoteObject
         js_code = f"""
         (function() {{
             const label = {repr(label)};
@@ -195,124 +192,89 @@ async def extract_value_from_specs(page, label: str, default: str = "") -> str:
         return default
 
 
-async def extract_value_from_project_card(page, icon_class: str, default: str = "", max_retries: int = 3) -> str:
+async def extract_value_from_project_card(page, icon_class: str, default: str = "") -> str:
     """
     Extract value from project card using JavaScript to avoid CBOR stack limit errors.
-    Includes retry logic with page reload if default value is returned.
     """
-    for attempt in range(max_retries):
-        try:
-            js_code = f"""
-            (function() {{
-                const iconClass = {repr(icon_class)};
-                const defaultValue = {repr(default)};
-                const items = document.querySelectorAll('span.re__prj-card-config-value');
-                
-                for (const item of items) {{
-                    const icon = item.querySelector('i.' + iconClass);
-                    if (icon) {{
-                        const valueElement = item.querySelector('span.re__long-text');
-                        if (valueElement) {{
-                            const value = valueElement.textContent.trim();
-                            return value ? value : defaultValue;
-                        }}
+    try:
+        js_code = f"""
+        (function() {{
+            const iconClass = {repr(icon_class)};
+            const defaultValue = {repr(default)};
+            const items = document.querySelectorAll('span.re__prj-card-config-value');
+            
+            for (const item of items) {{
+                const icon = item.querySelector('i.' + iconClass);
+                if (icon) {{
+                    const valueElement = item.querySelector('span.re__long-text');
+                    if (valueElement) {{
+                        const value = valueElement.textContent.trim();
+                        return value ? value : defaultValue;
                     }}
                 }}
-                
-                return defaultValue;
-            }})()
-            """
+            }}
             
-            result = await page.evaluate(js_code, return_by_value=True)
-            # Ensure we return string, not RemoteObject or None
-            if result is None or (hasattr(result, 'type_') and result.type_ == 'string'):
-                result_str = default
-            else:
-                result_str = str(result) if result else default
-            
-            # If we got a non-default value, return it
-            if result_str != default:
-                return result_str
-            
-            # If we got default value and have retries left, reload and retry
-            if attempt < max_retries - 1:
-                logger.debug(f"Got default value for icon '{icon_class}', reloading page (attempt {attempt + 1}/{max_retries})")
-                await page.reload()
-                await wait_for_content_load(page)
-            else:
-                logger.warning(f"Cannot load project card items '{icon_class}' after {max_retries} attempts for page {page.url}")
-                return default
-            
-        except Exception as e:
-            if attempt < max_retries - 1:
-                logger.debug(f"Error extracting project card value '{icon_class}': {e}, retrying (attempt {attempt + 1}/{max_retries})")
-                await page.reload()
-                await wait_for_content_load(page)
-            else:
-                logger.warning(f"Cannot load project card items '{icon_class}': {e} for page {page.url}")
-                return default
-    
-    return default
+            return defaultValue;
+        }})()
+        """
+        
+        result = await page.evaluate(js_code, return_by_value=True)
+        # Ensure we return string, not RemoteObject or None
+        if result is None or (hasattr(result, 'type_') and result.type_ == 'string'):
+            return default
+        return str(result) if result else default
+        
+    except Exception as e:
+        logger.warning(f"Cannot load project card items '{icon_class}': {e} for page {page.url}")
+        return default
 
 
-async def extract_value_from_post_card(page, label: str, default: str = "", max_retries: int = 3) -> str:
+async def extract_value_from_post_card(page, label: str, default: str = "") -> str:
     """
     Extract value from post card using JavaScript to avoid CBOR stack limit errors.
     Includes retry logic for cases where value might load asynchronously.
     """
-    for attempt in range(max_retries):
-        try:
-            js_code = f"""
-            (function() {{
-                const label = {repr(label)};
-                const items = document.querySelectorAll('div.re__pr-short-info-item.js__pr-config-item');
-                
-                for (const item of items) {{
-                    const titleElement = item.querySelector('span.title');
-                    if (titleElement) {{
-                        const titleText = titleElement.textContent.trim();
-                        if (titleText && titleText.toLowerCase().includes(label.toLowerCase())) {{
-                            const valueElement = item.querySelector('span.value');
-                            if (valueElement) {{
-                                const valueText = valueElement.textContent.trim();
-                                if (valueText) {{
-                                    return valueText;
-                                }}
+    try:
+        js_code = f"""
+        (function() {{
+            const label = {repr(label)};
+            const items = document.querySelectorAll('div.re__pr-short-info-item.js__pr-config-item');
+            
+            for (const item of items) {{
+                const titleElement = item.querySelector('span.title');
+                if (titleElement) {{
+                    const titleText = titleElement.textContent.trim();
+                    if (titleText && titleText.toLowerCase().includes(label.toLowerCase())) {{
+                        const valueElement = item.querySelector('span.value');
+                        if (valueElement) {{
+                            const valueText = valueElement.textContent.trim();
+                            if (valueText) {{
+                                return valueText;
                             }}
                         }}
                     }}
                 }}
-                
-                return ""; // Return empty string instead of null to avoid RemoteObject
-            }})()
-            """
+            }}
             
-            result = await page.evaluate(js_code, return_by_value=True)
-            
-            # Ensure we handle RemoteObject properly
-            if result is None or (hasattr(result, 'type_') and result.type_ == 'string'):
-                result_str = default
-            else:
-                result_str = str(result) if result else ""
-            
-            if result_str:
-                return result_str
-            
-            # If value is empty and we have retries left, wait and retry
-            if attempt < max_retries - 1:
-                logger.debug(f"Empty value for '{label}', retrying (attempt {attempt + 1}/{max_retries})")
-                await asyncio.sleep(0.5)
-            else:
-                return default
-                
-        except Exception as e:
-            logger.warning(f"Not found post card items '{label}': {e} for page {page.url} (attempt {attempt + 1}/{max_retries})")
-            if attempt < max_retries - 1:
-                await asyncio.sleep(0.5)
-                continue
-            return default
-
-    return default
+            return ""; // Return empty string instead of null to avoid RemoteObject
+        }})()
+        """
+        
+        result = await page.evaluate(js_code, return_by_value=True)
+        
+        # Ensure we handle RemoteObject properly
+        if result is None or (hasattr(result, 'type_') and result.type_ == 'string'):
+            result_str = default
+        else:
+            result_str = str(result) if result else ""
+        
+        if result_str:
+            return result_str
+        
+    except Exception as e:
+        logger.warning(f"Not found post card items '{label}': {e} for page {page.url}")
+        return default
+        
 
 def save_results_to_csv(results):
     RAW_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "raw"
