@@ -26,13 +26,11 @@ START = "/nha-dat-ban/"
 
 async def start_browser():
     try:
-
         browser = await uc.start(
             headless=True,
             sandbox=False,
-            browser_executable_path= "/usr/bin/google-chrome-stable",
-            browser_args=CrawlConfig.BROWSER_ARGS,
-            # user_data_dir=str(user_data_dir),
+            browser_executable_path= r"/usr/bin/google-chrome-stable",
+            # browser_args=CrawlConfig.BROWSER_ARGS
         )
         if not getattr(browser, "connection", None):
             raise RuntimeError("Browser started but connection is None")
