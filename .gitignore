@@ -96,3 +96,5 @@ AGENTS.md
 .kilocodeignore
 
 *.csv
+# Bỏ qua thư mục .history của VS Code
+.history/
