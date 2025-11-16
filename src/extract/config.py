@@ -13,7 +13,7 @@ class CrawlConfig:
     END_PAGE = 3
     
     BROWSER_ARGS = [
-    '--no-sandbox',
+    # '--no-sandbox',
     '--disable-dev-shm-usage',
     '--disable-gpu',
     '--disable-setuid-sandbox',
