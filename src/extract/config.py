@@ -1,19 +1,16 @@
 import asyncio
-import os
-import tempfile
-from pathlib import Path
 
 
 class CrawlConfig:
     
     # Semaphore cho subpage - giới hạn số lượng subpage được xử lý đồng thời cho mỗi main page
-    SUBPAGE_SEMAPHORE_LIMIT = 50
+    SUBPAGE_SEMAPHORE_LIMIT = 10
     
     # Trang bắt đầu thu thập
-    START_PAGE = 60
+    START_PAGE = 1
      
     # Trang kết thúc thu thập
-    END_PAGE = 70
+    END_PAGE = 3
     
     BROWSER_ARGS = [
     '--no-sandbox',
