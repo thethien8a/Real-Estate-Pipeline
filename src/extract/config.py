@@ -4,13 +4,13 @@ import asyncio
 class CrawlConfig:
     
     # Semaphore cho subpage - giới hạn số lượng subpage được xử lý đồng thời cho mỗi main page
-    SUBPAGE_SEMAPHORE_LIMIT = 50
+    SUBPAGE_SEMAPHORE_LIMIT = 5
     
     # Trang bắt đầu thu thập
-    START_PAGE = 20
+    START_PAGE = 1
      
     # Trang kết thúc thu thập
-    END_PAGE = 30
+    END_PAGE = 1
     
     BROWSER_ARGS = [
     '--disable-dev-shm-usage',
