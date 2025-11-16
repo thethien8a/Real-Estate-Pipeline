@@ -1,8 +1,8 @@
 name: Daily ETL 
 
 on:
-  # push:
-  #   branches: [ main ]
+  push:
+    branches: [ main ]
 
   schedule:
     # Chạy 12h đêm 
@@ -61,3 +61,25 @@ jobs:
       - name: Run load
         run: |
           python src/load/load_staging.py
+
+      - name: Build quality dashboard
+        run: python check_quality/dash_quality.py
+
+      - name: Upload dashboard artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dashboard_quality.html
+
+  deploy-dashboard:
+    needs: daily-etl
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4     

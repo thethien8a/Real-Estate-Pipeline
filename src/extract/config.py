@@ -7,7 +7,7 @@ class CrawlConfig:
     SUBPAGE_SEMAPHORE_LIMIT = 10
     
     # Trang bắt đầu thu thập
-    START_PAGE = 1
+    START_PAGE = 0
      
     # Trang kết thúc thu thập
     END_PAGE = 3
