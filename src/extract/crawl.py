@@ -29,7 +29,7 @@ async def start_browser():
 
         browser = await uc.start(
             headless=True,
-            no_sandbox=True,
+            sandbox=False,
             browser_executable_path= "/usr/bin/google-chrome-stable",
             browser_args=CrawlConfig.BROWSER_ARGS,
             # user_data_dir=str(user_data_dir),
