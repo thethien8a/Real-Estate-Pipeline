@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import os
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 import nodriver as uc
@@ -24,13 +26,54 @@ logger = logging.getLogger(__name__)
 BASE_URL = "https://batdongsan.com.vn"
 START = "/nha-dat-ban/"
 
+
+def detect_chrome_path() -> str:
+    """
+    Best-effort detection of the Chrome executable across CI runners and local environments.
+    Preference order:
+    1. CHROME_PATH env (absolute path or command on PATH)
+    2. Common binary names on PATH
+    3. Known absolute install locations (Linux + Windows)
+    """
+    preferred_commands = [
+        os.getenv("CHROME_PATH"),
+        "google-chrome-stable",
+        "google-chrome",
+        "chromium-browser",
+    ]
+    preferred_paths = [
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/google-chrome",
+        "/usr/local/bin/google-chrome",
+        "/opt/google/chrome/google-chrome",
+    ]
+
+    for candidate in preferred_commands:
+        if not candidate:
+            continue
+        resolved = shutil.which(candidate)
+        if resolved:
+            return resolved
+        if Path(candidate).is_file():
+            return candidate
+
+    for candidate in preferred_paths:
+        if Path(candidate).is_file():
+            return candidate
+
+    raise FileNotFoundError(
+        "Không tìm thấy Chrome. Hãy cài đặt google-chrome-stable trong CI hoặc đặt CHROME_PATH."
+    )
+
 async def start_browser():
     try:
+        chrome_path = detect_chrome_path()
+        logger.info("Using Chrome executable at %s", chrome_path)
         browser = await uc.start(
             headless=True,
             sandbox=False,
-            browser_executable_path= r"/usr/bin/google-chrome-stable",
-            # browser_args=CrawlConfig.BROWSER_ARGS
+            browser_executable_path=chrome_path,
+            browser_args=CrawlConfig.BROWSER_ARGS
         )
         if not getattr(browser, "connection", None):
             raise RuntimeError("Browser started but connection is None")
