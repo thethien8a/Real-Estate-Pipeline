@@ -1,8 +1,8 @@
 name: Daily ETL 
 
 on:
-  push:
-    branches: [ main ]
+  # push:
+  #   branches: [ main ]
 
   schedule:
     # Chạy 12h đêm 
