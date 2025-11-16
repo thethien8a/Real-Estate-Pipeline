@@ -67,12 +67,12 @@ def detect_chrome_path() -> str:
 
 async def start_browser():
     try:
-        chrome_path = detect_chrome_path()
-        logger.info("Using Chrome executable at %s", chrome_path)
+        # chrome_path = detect_chrome_path()
+        # logger.info("Using Chrome executable at %s", chrome_path)
         browser = await uc.start(
             headless=True,
             sandbox=False,
-            browser_executable_path=chrome_path,
+            browser_executable_path="/opt/hostedtoolcache/setup-chrome/chrome/stable/x64/chrome",
             browser_args=CrawlConfig.BROWSER_ARGS
         )
         if not getattr(browser, "connection", None):
