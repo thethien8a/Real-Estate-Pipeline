@@ -3,13 +3,12 @@
 ## 1. Chuyển đổi dữ liệu từ staging sang silver
 
 ### Công nghệ sử dụng:
-- Dask DataFrame: phù hợp với quy mô dữ liệu từ 1-10GB
+- Pandas: phù hợp với quy mô dữ liệu từ 1-2GB
 - Hỗ trợ tốt các thao tác phức tạp như xử lý chuỗi, regex để phân tích địa chỉ
 - Có thể mở rộng từ single-machine lên cluster khi cần
 
 ### Xử lý chung:
-- Loại bỏ hoàn toàn các dòng trùng lặp trong dữ liệu (với subcolumns là các cột trừ metadata hệ thống tự tạo)
-- Áp dụng cơ chế upsert từ staging sang silver để đảm bảo dữ liệu không bị trùng lặp 
+- Áp dụng cơ chế upsert từ staging sang silver để đảm bảo dữ liệu không bị trùng lặp với cột được sử dụng để upsert là "url" 
 - Không chuyển vào silver những dữ liệu mà có cột "title" hoặc "address" là rỗng
 - Với những dữ liệu xử lý bị lỗi, ta sẽ cho vào bảng lỗi "error_table"
 - Các cột số NULL thì đổi hết sang -1, còn string thì đổi NULL sang "unknown"
