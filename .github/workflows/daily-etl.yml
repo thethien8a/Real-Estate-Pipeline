@@ -19,7 +19,7 @@ on:
 jobs:
   daily-etl:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 300
 
     env:
       # Đặt tên env đọc từ GitHub Secrets
