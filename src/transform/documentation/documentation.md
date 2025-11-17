@@ -5,6 +5,8 @@
 ### Xử lý chung:
 - Loại bỏ hoàn toàn các dòng trùng lặp trong dữ liệu (với subcolumns là các cột trừ metadata hệ thống tự tạo)
 - Áp dụng cơ chế upsert từ staging sang silver để đảm bảo dữ liệu không bị trùng lặp 
+- Không chuyển vào silver những dữ liệu mà có cột "title" hoặc "address" là rỗng
+- Với những dữ liệu xử lý bị lỗi, ta sẽ cho vào bảng lỗi "error_table"
 
 ### Các bước xử lý chi tiết:
 

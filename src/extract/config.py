@@ -7,10 +7,10 @@ class CrawlConfig:
     SUBPAGE_SEMAPHORE_LIMIT = 10
     
     # Trang bắt đầu thu thập
-    START_PAGE = 0
+    START_PAGE = 300
      
     # Trang kết thúc thu thập
-    END_PAGE = 3
+    END_PAGE = 400
     
     BROWSER_ARGS = [
     '--disable-dev-shm-usage',
