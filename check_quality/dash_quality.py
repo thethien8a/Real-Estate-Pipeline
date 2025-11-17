@@ -77,6 +77,59 @@ def _render_metric_chart(df: pd.DataFrame, column: str) -> str:
     return fig.to_html(full_html=False, include_plotlyjs=False, config={"displayModeBar": False})
 
 
+def _render_total_records_chart(df: pd.DataFrame) -> str:
+    """Render chart for total records by date"""
+    fig = go.Figure()
+    
+    # Add gradient fill
+    fig.add_trace(
+        go.Scatter(
+            x=df["crawl_date"],
+            y=df["total_records"],
+            mode="lines+markers",
+            name="Tổng Số Tin",
+            line=dict(color="#10b981", width=3),
+            marker=dict(size=8, color="#10b981", line=dict(width=2, color="white")),
+            fill='tozeroy',
+            fillcolor='rgba(16, 185, 129, 0.1)',
+            connectgaps=True,
+        )
+    )
+
+    fig.update_layout(
+        title=dict(
+            text="Tổng Dữ Liệu Thu Thập Theo Ngày",
+            font=dict(size=16, color="#1e293b", family="Inter, system-ui, sans-serif", weight=600)
+        ),
+        xaxis_title="Ngày Crawl",
+        yaxis_title="Tổng Số Tin",
+        hovermode="x unified",
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        height=350,
+        margin=dict(l=50, r=20, t=60, b=40),
+        font=dict(family="Inter, system-ui, sans-serif", size=12, color="#64748b"),
+        xaxis=dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor="rgba(148, 163, 184, 0.1)",
+            showline=True,
+            linewidth=1,
+            linecolor="rgba(148, 163, 184, 0.2)",
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor="rgba(148, 163, 184, 0.1)",
+            showline=True,
+            linewidth=1,
+            linecolor="rgba(148, 163, 184, 0.2)",
+        ),
+    )
+
+    return fig.to_html(full_html=False, include_plotlyjs=False, config={"displayModeBar": False})
+
+
 def _build_chart_grid(df: pd.DataFrame, columns: list[str]) -> str:
     if not columns:
         return '<div class="empty-state">📊 Không có dữ liệu để hiển thị</div>'
@@ -115,6 +168,9 @@ def build_dashboard(df, output_path="dashboard_quality.html"):
     # Calculate metrics
     metrics = _calculate_metrics(df)
 
+    # Generate total records chart
+    total_records_chart = _render_total_records_chart(df)
+    
     missing_chart_grid = _build_chart_grid(df, missing_cols)
     suspicious_chart_grid = _build_chart_grid(df, suspicious_cols)
 
@@ -434,7 +490,7 @@ def build_dashboard(df, output_path="dashboard_quality.html"):
     <body>
         <div class="container">
             <header class="header">
-                <h1>📊 Quality Check Dashboard</h1>
+                <h1>Quality Check Dashboard</h1>
                 <p>Giám sát chất lượng dữ liệu BDS theo thời gian thực</p>
             </header>
 
@@ -466,6 +522,20 @@ def build_dashboard(df, output_path="dashboard_quality.html"):
                     <div class="metric-subtitle">Dữ liệu theo dõi</div>
                 </div>
             </div>
+
+            <!-- Total Records Chart Section -->
+            <section class="section">
+                <div class="section-header">
+                    <div class="section-icon">📊</div>
+                    <div>
+                        <h2>Tổng Dữ Liệu Thu Thập</h2>
+                        <p class="section-description">Tổng số tin bất động sản thu thập được theo từng ngày</p>
+                    </div>
+                </div>
+                <div style="width: 100%; height: 350px;">
+                    {total_records_chart}
+                </div>
+            </section>
 
             <section class="section">
                 <div class="section-header">
