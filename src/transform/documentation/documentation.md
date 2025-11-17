@@ -12,6 +12,7 @@
 - Áp dụng cơ chế upsert từ staging sang silver để đảm bảo dữ liệu không bị trùng lặp 
 - Không chuyển vào silver những dữ liệu mà có cột "title" hoặc "address" là rỗng
 - Với những dữ liệu xử lý bị lỗi, ta sẽ cho vào bảng lỗi "error_table"
+- Các cột số NULL thì đổi hết sang -1, còn string thì đổi NULL sang "unknown"
 
 ### Các bước xử lý chi tiết:
 
