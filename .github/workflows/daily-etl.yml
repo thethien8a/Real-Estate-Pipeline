@@ -1,8 +1,8 @@
 name: Daily ETL 
 
 on:
-  push:
-    branches: [ main ]
+  # push:
+  #   branches: [ main ]
 
   schedule:
     # Chạy 12h đêm 
@@ -19,7 +19,7 @@ on:
 jobs:
   daily-etl:
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 60
 
     env:
       # Đặt tên env đọc từ GitHub Secrets
