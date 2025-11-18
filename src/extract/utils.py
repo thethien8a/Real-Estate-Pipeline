@@ -106,7 +106,6 @@ async def wait_for_content_load(
 
     await asyncio.sleep(3.0)
 
-
 async def text_from_selector(page, selector: str, attempts: int = 3, delay: float = 3) -> Optional[str]:
     """
     Extract text from selector using JavaScript to avoid RemoteObject issues.

@@ -1,8 +1,8 @@
 name: Daily ETL 
 
 on:
-  # push:
-  #   branches: [ main ]
+  push:
+    branches: [ main ]
 
   schedule:
     # Chạy 12h đêm 
@@ -19,7 +19,7 @@ on:
 jobs:
   daily-etl:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 100
 
     env:
       # Đặt tên env đọc từ GitHub Secrets
@@ -61,3 +61,30 @@ jobs:
       - name: Run load
         run: |
           python src/load/load_staging.py
+
+      - name: Build quality dashboard
+        run: python check_quality/dash_quality.py
+
+      - name: Prepare dashboard
+        run: |
+          mkdir -p site
+          cp dashboard_quality.html site/index.html
+
+      - name: Upload dashboard artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy-dashboard:
+    needs: daily-etl
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4     

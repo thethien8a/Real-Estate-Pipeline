@@ -1,9 +1,6 @@
 import asyncio
 import logging
-import os
-import shutil
 from datetime import datetime, timezone
-from pathlib import Path
 import nodriver as uc
 from utils import (
     extract_value_from_specs,
@@ -25,8 +22,6 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "https://batdongsan.com.vn"
 START = "/nha-dat-ban/"
-
-
 
 async def start_browser():
     try:

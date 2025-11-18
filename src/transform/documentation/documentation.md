@@ -75,4 +75,18 @@
     - have_full_furniture: nếu có tất cả nội thất thì 1 còn không thì là 0
     - furniture_type: với các giá trị như: basic, premium
 9. **Cột number_bedroom**
-- 
+- Xóa "phòng"
+- Chia làm các loại giá trị: 1;2;3;4;5;  6-10; >10
+10. **Cột number_bathroom**
+-Xóa "phòng"
+-Chia làm các loại giá trị: 1;2;3;4;5; 6-10; >10
+11. **Cột number_floor**
+- Xóa "tầng"
+-Chia làm các loại giá trị: 1;2;3;4;5; 6-10; >10
+12. **Cột way_in**
+- Chia làm các loại: 0-10m; 11-20m; 21-30m; 31-40m; 41-50m; >50m
+13. **Cột project_name**
+- Loại bỏ các giá trị có chứa dd/mm/year hoặc mm/year ở đầu
+- Chia làm các loại: 
++) "Đang mở bán" đối với các giá trị như "đã bàn giao, đã bàn giao tòa abc, đang bán, đang bàn giao, đang mở bán, mở bán giai đoạn abc, bàn giao vào abc, bán toàn bộ ,...."
++) 
