@@ -74,3 +74,5 @@
 8. **Cột furniture:**: Sẽ được tạo thành 2 cột:
     - have_full_furniture: nếu có tất cả nội thất thì 1 còn không thì là 0
     - furniture_type: với các giá trị như: basic, premium
+9. **Cột number_bedroom**
+- 
