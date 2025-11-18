@@ -2,15 +2,9 @@
 
 ## 1. Chuyển đổi dữ liệu từ staging sang silver
 
-### Công nghệ sử dụng:
-- Pandas: phù hợp với quy mô dữ liệu từ 1-2GB
-- Hỗ trợ tốt các thao tác phức tạp như xử lý chuỗi, regex để phân tích địa chỉ
-
 ### Xử lý chung:
-- Áp dụng cơ chế upsert từ staging sang silver để đảm bảo dữ liệu không bị trùng lặp với cột được sử dụng để upsert là "url" 
-- Không chuyển vào silver những dữ liệu mà có cột "title" hoặc "address" là rỗng
-- Với những dữ liệu xử lý bị lỗi, ta sẽ cho vào bảng lỗi "error_table"
-- Các cột số NULL thì đổi hết sang -1, còn string thì đổi NULL sang "unknown"
+- Loại bỏ hoàn toàn các dòng trùng lặp trong dữ liệu (với subcolumns là các cột trừ metadata hệ thống tự tạo)
+- Áp dụng cơ chế upsert từ staging sang silver để đảm bảo dữ liệu không bị trùng lặp 
 
 ### Các bước xử lý chi tiết:
 
@@ -80,3 +74,41 @@
 8. **Cột furniture:**: Sẽ được tạo thành 2 cột:
     - have_full_furniture: nếu có tất cả nội thất thì 1 còn không thì là 0
     - furniture_type: với các giá trị như: basic, premium
+9. **Cột number_bedroom**
+- Xóa "phòng"
+- Chia làm các loại giá trị: 1;2;3;4;5;  6-10; >10
+10. **Cột number_bathroom**
+-Xóa "phòng"
+-Chia làm các loại giá trị: 1;2;3;4;5; 6-10; >10
+11. **Cột number_floor**
+- Xóa "tầng"
+-Chia làm các loại giá trị: 1;2;3;4;5; 6-10; >10
+12. **Cột way_in**
+- Chia làm các loại: 0-10m; 11-20m; 21-30m; 31-40m; 41-50m; >50m
+13. **Cột project_name**
+Chia làm các loại: Kiểm tra theo thứ tự từ trên xuống, match cái nào lấy cái đó:
+- "đã bàn giao" → "đã bàn giao"
+   (hoặc "bàn giao" + năm ≤ 2024)
+
+- "đang bàn giao" → "đang bàn giao"
+
+- "sắp bàn giao" → "sắp bàn giao"
+   (hoặc "bàn giao" + năm ≥ 2025)
+
+- "đang mở bán" → "đang mở bán"
+   (hoặc "mở bán đợt")
+
+- "sắp mở bán" → "sắp mở bán"
+
+- "cắt nóc" hoặc "đang xây dựng" → "đang xây dựng"
+
+- "dự kiến" → "dự kiến"
+
+- Còn lại → "đang cập nhật"
+14. **Cột project_investor"
+Giữ nguyên, đổi sang viết hoa tất cả các chữ đầu tiên cho đồng bộ
+dữ liệu k biết thì unknown
+15. **Các cột còn lại"
+Không cần transform
+
+
