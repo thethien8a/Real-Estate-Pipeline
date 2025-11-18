@@ -105,10 +105,10 @@ Chia làm các loại: Kiểm tra theo thứ tự từ trên xuống, match cái
 - "dự kiến" → "dự kiến"
 
 - Còn lại → "đang cập nhật"
-14. **Cột project_investor"
+14. **Cột project_invenhật**
 Giữ nguyên, đổi sang viết hoa tất cả các chữ đầu tiên cho đồng bộ
 dữ liệu k biết thì unknown
-15. **Các cột còn lại"
+15. **Các cột còn lại**
 Không cần transform
 
 
