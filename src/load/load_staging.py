@@ -1,5 +1,3 @@
-import os
-import json
 import logging
 import re
 from datetime import datetime
@@ -9,7 +7,7 @@ from supabase_class import SupabaseManager
 import pandas as pd
 import math
 from typing import Any
-import numpy as np
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
