@@ -5,7 +5,6 @@
 ### Công nghệ sử dụng:
 - Pandas: phù hợp với quy mô dữ liệu từ 1-2GB
 - Hỗ trợ tốt các thao tác phức tạp như xử lý chuỗi, regex để phân tích địa chỉ
-- Có thể mở rộng từ single-machine lên cluster khi cần
 
 ### Xử lý chung:
 - Áp dụng cơ chế upsert từ staging sang silver để đảm bảo dữ liệu không bị trùng lặp với cột được sử dụng để upsert là "url" 
