@@ -127,33 +127,69 @@ Tạo 2 cột:
 
 #### 11. Cột `number_floor`
 - Xóa "tầng"
--Chia làm các loại giá trị: 1;2;3;4;5; 6-10; >10
-12. **Cột way_in**
-- Chia làm các loại: 0-10m; 11-20m; 21-30m; 31-40m; 41-50m; >50m
-13. **Cột project_name**
-Chia làm các loại: Kiểm tra theo thứ tự từ trên xuống, match cái nào lấy cái đó:
-- "đã bàn giao" → "đã bàn giao"
-   (hoặc "bàn giao" + năm ≤ 2024)
+- Chuyển thành số nguyên
 
-- "đang bàn giao" → "đang bàn giao"
+**LƯU Ý:** Các trường hợp không phù hợp hoặc lỗi → đưa vào `error_table`
 
-- "sắp bàn giao" → "sắp bàn giao"
-   (hoặc "bàn giao" + năm ≥ 2025)
+---
 
-- "đang mở bán" → "đang mở bán"
-   (hoặc "mở bán đợt")
+#### 12. Cột `way_in`
+- Xóa dấu nháy kép (")
+- Xóa chữ "m"
+- Đổi tên cột thành `way_in_m`
 
-- "sắp mở bán" → "sắp mở bán"
+**LƯU Ý:** Các trường hợp không phù hợp hoặc lỗi → đưa vào `error_table`
 
-- "cắt nóc" hoặc "đang xây dựng" → "đang xây dựng"
+---
 
-- "dự kiến" → "dự kiến"
+#### 13. Cột `project_name`
 
-- Còn lại → "đang cập nhật"
-14. **Cột project_investor"
-Giữ nguyên, đổi sang viết hoa tất cả các chữ đầu tiên cho đồng bộ
-dữ liệu k biết thì unknown
-15. **Các cột còn lại"
-Không cần transform
+Kiểm tra theo thứ tự từ trên xuống, match cái nào lấy cái đó:
+<!-- 
+Của Nhung
+| Điều kiện | Kết quả |
+|-----------|---------|
+| "đã bàn giao" hoặc ("bàn giao" + năm ≤ 2024) | "đã bàn giao" |
+| "đang bàn giao" | "đang bàn giao" |
+| "sắp bàn giao" hoặc ("bàn giao" + năm ≥ 2025) | "sắp bàn giao" |
+| "đang mở bán" hoặc "mở bán đợt" | "đang mở bán" |
+| "sắp mở bán" | "sắp mở bán" |
+| "cắt nóc" hoặc "đang xây dựng" | "đang xây dựng" |
+| "dự kiến" | "dự kiến" |
+| NULL | "không xác định | -->
 
+Của Thiện
++ Với các TH dài dài khó xác định thì ta sẽ cho vào `error_table` để xly thủ công sau
++ NULL -> "không xác định 
 
+**LƯU Ý:** Các trường hợp không phù hợp hoặc lỗi → đưa vào `error_table`
+
+---
+
+#### 14. Cột `project_investor`
+- Giữ nguyên, đổi sang viết hoa tất cả các chữ đầu tiên cho đồng bộ
+- Dữ liệu không biết → "không xác định"
+
+---
+
+#### 15. Cột `subpage_url`
+
+**Các pattern URL:**
+- `https://batdongsan.com.vn/ban-nha-biet-thu-...`
+- `https://batdongsan.com.vn/ban-can-ho-chung-cu-...`
+- `https://batdongsan.com.vn/ban-nha-rieng-...`
+- `https://batdongsan.com.vn/ban-dat-xa-...`
+- `https://batdongsan.com.vn/ban-dat-duong-...`
+- `https://batdongsan.com.vn/ban-dat-nen-...`
+- `https://batdongsan.com.vn/ban-condotel-...`
+- `https://batdongsan.com.vn/ban-shophouse-...`
+- `https://batdongsan.com.vn/ban-loai-bat-dong-san-khac-...`
+- `https://batdongsan.com.vn/ban-nha-mat-pho-...`
+- `https://batdongsan.com.vn/ban-dat-phuong-...`
+- `https://batdongsan.com.vn/ban-trang-trai-...`
+
+**Xử lý:**
+- Tạo cột mới: **loại bất động sản**
+- Các giá trị: Nhà biệt thự, Căn hộ chung cư, Nhà riêng, Đất xã, Đất đường, Đất nền, Condotel, Shophouse, Bất động sản khác, Nhà mặt phố, Đất phường, Trang trại
+
+**LƯU Ý:** URL không phù hợp (Không chứa các pattern trên) → đưa vào `error_table`
