@@ -86,7 +86,29 @@
 12. **Cột way_in**
 - Chia làm các loại: 0-10m; 11-20m; 21-30m; 31-40m; 41-50m; >50m
 13. **Cột project_name**
-- Loại bỏ các giá trị có chứa dd/mm/year hoặc mm/year ở đầu
-- Chia làm các loại: 
-+) "Đang mở bán" đối với các giá trị như "đã bàn giao, đã bàn giao tòa abc, đang bán, đang bàn giao, đang mở bán, mở bán giai đoạn abc, bàn giao vào abc, bán toàn bộ ,...."
-+) 
+Chia làm các loại: Kiểm tra theo thứ tự từ trên xuống, match cái nào lấy cái đó:
+- "đã bàn giao" → "đã bàn giao"
+   (hoặc "bàn giao" + năm ≤ 2024)
+
+- "đang bàn giao" → "đang bàn giao"
+
+- "sắp bàn giao" → "sắp bàn giao"
+   (hoặc "bàn giao" + năm ≥ 2025)
+
+- "đang mở bán" → "đang mở bán"
+   (hoặc "mở bán đợt")
+
+- "sắp mở bán" → "sắp mở bán"
+
+- "cắt nóc" hoặc "đang xây dựng" → "đang xây dựng"
+
+- "dự kiến" → "dự kiến"
+
+- Còn lại → "đang cập nhật"
+14. **Cột project_investor"
+Giữ nguyên, đổi sang viết hoa tất cả các chữ đầu tiên cho đồng bộ
+dữ liệu k biết thì unknown
+15. **Các cột còn lại"
+Không cần transform
+
+
