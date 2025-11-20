@@ -54,7 +54,6 @@ Cột này sẽ tách ra thành 4 cột: **Khu vực cụ thể | Thôn/Tổ dâ
 **Quan sát:** price có các trường hợp: Thỏa thuận, ... triệu/m², tỷ, triệu
 
 **XỬ LÝ:** Tạo cột `million_per_m2` để lưu giá triệu đồng/m²
-- Nếu có chữ "Thỏa thuận" → giá trị `None`
 - Nếu có chữ "tỷ" → nhân với 1000 để được triệu đồng, sau đó chia cho diện tích
 - Nếu có chữ "triệu" → chia cho diện tích để được triệu đồng/m²
 - Thay "," thành "." để được số thập phân

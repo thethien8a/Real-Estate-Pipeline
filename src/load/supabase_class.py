@@ -92,6 +92,14 @@ class SupabaseManager:
             self.logger.error(f"Lỗi đọc records: {str(e)}")
             return {"success": False, "error": str(e)}
 
+    def call_rpc_function(self, function_name: str, params: Dict = None, schema: Optional[str] = None) -> Dict:
+        try:
+            client = self._get_client_for_schema(schema or self.default_schema)
+            result = client.rpc(function_name, params).execute()
+            return {"success": True, "data": result.data}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     def update(self, table: str, data: Dict, filters: Dict) -> Dict:
         """Cập nhật records"""
         try:
@@ -159,10 +167,10 @@ class SupabaseManager:
             self.logger.error(f"Lỗi batch insert: {str(e)}")
             return {"success": False, "error": str(e)}
 
-    def query_with_conditions(self, table: str, conditions: Dict) -> Dict:
+    def query_with_conditions(self, table: str, conditions: Dict, schema: Optional[str] = None) -> Dict:
         """Query với nhiều điều kiện"""
         try:
-            client = self._get_client_for_schema(None)
+            client = self._get_client_for_schema(schema or self.default_schema)
             query = client.table(table).select("*")
             
             for key, condition in conditions.items():

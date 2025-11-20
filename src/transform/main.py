@@ -1,14 +1,24 @@
 import logging
 from datetime import datetime
-from transformators import transform_row, update_last_processed
-from validators import validate_row, get_newest_data
+from transformators import Transformators
+from utils import get_newest_data, update_last_processed, load_to_silver
+import sys
+from pathlib import Path
 
-from ..load.load_silver import load_to_silver
+BASE_DIR = Path(__file__).resolve().parents[2]
+SRC_DIR = BASE_DIR / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+    
+from load.supabase_class import SupabaseManager
+from load.load_silver import load_to_silver
+
 logger = logging.getLogger(__name__)
 
 def main():
+    supabase = SupabaseManager(default_schema="silver")
     # Read data from staging
-    data = get_newest_data(...)
+    data = get_newest_data(supabase)
     
     if not data:
         logger.info("Không có dữ liệu mới để xử lý")
@@ -19,30 +29,24 @@ def main():
     
     valid_rows = []
     error_rows = []
-    
+
     for row in data:
-        status_row, error_msg = validate_row(row)
-        
-        if status_row:
+        if validate(row):
             try:
-                clean_row = transform_row(row)
+                clean_row = Transformators.transform_row(row)
                 valid_rows.append(clean_row)
             except Exception as e:
-                error_rows.append({**row, "error": str(e), "fixed_row": "No"})
+                error_rows.append({**row, "error": str(e), "retry_status": "pending"})
         else:
-            error_rows.append({**row, "error": error_msg, "fixed_row": "No"})
+            error_rows.append(row)
+        last_processed_date = max(last_processed_date, datetime.strptime(row['created_at'], '%Y-%m-%d %H:%M:%S'))
         
-        # Lấy ngày mới nhất
-        temp = row['created_at']
-        if temp > last_processed_date:
-            last_processed_date = temp
-            
     # Save data to silver
-    load_to_silver(valid_rows,error_rows)
+    load_to_silver(supabase, valid_rows, error_rows)
     logger.info(f"Đã xử lý {len(valid_rows)} dữ liệu hợp lệ và {len(error_rows)} dữ liệu lỗi")
 
     # Cập nhật ngày mới nhất
-    update_last_processed(last_processed_date)
+    update_last_processed(supabase, last_processed_date)
     logger.info(f"Đã cập nhật ngày mới nhất: {last_processed_date}")
     return None
 

@@ -15,17 +15,10 @@ class Transformators:
         Tách số trang từ main_page_url
         VD: https://batdongsan.com.vn/nha-dat-ban/p1 → 1
         """
-        try:
-            if not main_page_url:
-                return -1
-            match = re.search(r'/p(\d+)', main_page_url)
-            if match:
-                return int(match.group(1))
-            return 1  # Nếu không có /p thì là trang 1
-        except Exception as e:
-            logger.error(f"Error extracting page number: {e}")
-            return -1
-    
+        match = re.search(r'/p(\d+)', main_page_url)
+        if match:
+            return int(match.group(1))
+        
     @staticmethod
     def parse_address(address):
         """
@@ -50,13 +43,13 @@ class Transformators:
             parts = [p.strip().title() for p in address.split(',')]
             num_parts = len(parts)
             
-            # Luôn lấy 2 phần cuối
-            if num_parts >= 2:
-                result['tinh_thanh_pho'] = parts[-1]
-                result['quan_huyen'] = parts[-2]
+            if num_parts <= 2 or num_parts > 5:
+                result['is_error'] = True
+                return result
             
-            if num_parts >= 3:
-                result['phuong_xa'] = parts[-3]
+            result['tinh_thanh_pho'] = parts[-1]
+            result['quan_huyen'] = parts[-2]
+            result['phuong_xa'] = parts[-3]
             
             # Xử lý các trường hợp đặc biệt
             if num_parts == 4:
@@ -66,15 +59,12 @@ class Transformators:
                 # TH2: "Vinhomes Golden City, Hòa Nghĩa, Dương Kinh, Hà Nội"
                 else:
                     result['khu_vuc_cu_the'] = parts[0]
-                    
+
             elif num_parts == 5:
                 # "Nhà An Khê, Lỗ Khê, Liên Hà, Đông Anh, Hà Nội"
                 result['khu_vuc_cu_the'] = parts[0]
                 result['thon_to_dan_pho'] = parts[1]
                 
-            elif num_parts < 3 or num_parts > 5:
-                # Trường hợp không xác định → đưa vào error
-                result['is_error'] = True
                 
         except Exception as e:
             logger.error(f"Error parsing address '{address}': {e}")
@@ -144,13 +134,7 @@ class Transformators:
             area_str = area_str.replace('m²', '').replace('m2', '').strip()
             
             # Thay dấu phẩy thành dấu chấm
-            area_str = area_str.replace(',', '.')
-            
-            # Loại bỏ dấu chấm ngăn cách hàng nghìn (VD: 1.500 → 1500)
-            # Chỉ giữ dấu chấm thập phân cuối
-            parts = area_str.split('.')
-            if len(parts) > 2:
-                area_str = ''.join(parts[:-1]) + '.' + parts[-1]
+            area_str = area_str.replace('.', '').replace(',', '.')
             
             # Chuyển thành số
             value = float(area_str)
@@ -493,12 +477,6 @@ class Transformators:
             return None, error_message
 
 
-def update_last_processed(last_processed_date):
-    """Cập nhật ngày xử lý cuối cùng vào database"""
-    try:
-        # TODO: Implement update logic vào bảng silver.last_transform_date
-        logger.info(f"Updated last_processed_date to: {last_processed_date}")
-        return last_processed_date
-    except Exception as e:
-        logger.error(f"Error updating last_processed_date: {e}")
-        raise
+if __name__ == "__main__":
+    test_address = "Lỗ Khê, Đông Anh, Hà Nội"
+    print(Transformators.parse_address(test_address))
