@@ -53,10 +53,10 @@ def main():
             logger.warning("Bản ghi thiếu trường created_at, bỏ qua cập nhật thời gian")
     
     
-    valid_rows = deduplicate_latest(valid_rows)
+    valid_rows = deduplicate_latest(valid_rows, id_field="subpage_url")
 
     # Save data to silver (cơ chế upsert từ staging sang silver)
-    load_to_silver(supabase, valid_rows, error_rows)
+    load_to_silver(supabase, valid_rows, error_rows, on_conflict="subpage_url")
     logger.info(f"Đã xử lý {len(valid_rows)} dữ liệu hợp lệ và {len(error_rows)} dữ liệu lỗi")
 
     # Cập nhật ngày mới nhất
