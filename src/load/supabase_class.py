@@ -100,12 +100,12 @@ class SupabaseManager:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def update(self, table: str, data: Dict, filters: Dict) -> Dict:
+    def update(self, table: str, data: Dict, filters: Dict, schema: Optional[str] = None) -> Dict:
         """Cập nhật records"""
         try:
             # allow optional schema via filters dict key '_schema' or via explicit param in future
-            client = self._get_client_for_schema(None)
-            query = self.client.table(table).update(data)
+            client = self._get_client_for_schema(schema or self.default_schema)
+            query = client.table(table).update(data)
             
             # Áp dụng filters
             for key, value in filters.items():
@@ -136,19 +136,17 @@ class SupabaseManager:
             return {"success": False, "error": str(e)}
     
     def upsert(self, table: str, data: Union[Dict, List[Dict]], 
-               on_conflict: str = None) -> Dict:
+            on_conflict: str = None, schema: Optional[str] = None) -> Dict:
         """Upsert (insert or update)"""
-        try:
-            client = self._get_client_for_schema(None)
-            query = client.table(table).upsert(data)
-            if on_conflict:
-                query = query.on_conflict(on_conflict)
-            result = query.execute()
-            self.logger.info(f"Upsert thành công trong {table}")
-            return {"success": True, "data": result.data}
-        except Exception as e:
-            self.logger.error(f"Lỗi upsert: {str(e)}")
-            return {"success": False, "error": str(e)}
+        client = self._get_client_for_schema(schema or self.default_schema)
+        upsert_kwargs = {}
+        if on_conflict:
+            upsert_kwargs["on_conflict"] = on_conflict
+        query = client.table(table).upsert(data, **upsert_kwargs)
+        result = query.execute()
+        self.logger.info(f"Upsert thành công trong {table}")
+        return {"success": True, "data": result.data}
+
 
     def batch_insert(self, table: str, data_list: List[Dict], 
                     batch_size: int = 1000) -> Dict:
