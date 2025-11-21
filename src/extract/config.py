@@ -10,7 +10,7 @@ class CrawlConfig:
     START_PAGE = 0
      
     # Trang kết thúc thu thập
-    END_PAGE = 5
+    END_PAGE = 1
     
     BROWSER_ARGS = [
     '--disable-dev-shm-usage',

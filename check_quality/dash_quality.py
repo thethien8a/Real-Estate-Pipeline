@@ -145,14 +145,10 @@ def _calculate_metrics(df: pd.DataFrame) -> dict:
     """Calculate key metrics for the dashboard"""
     total_records = df["total_records"].sum()
     avg_daily_records = df["total_records"].mean()
-    
-    suspicious_cols = [c for c in df.columns if c.startswith("suspicious_") or c.startswith("invalid_")]
-    total_suspicious = sum(df[col].sum() for col in suspicious_cols) if suspicious_cols else 0
-    
+
     return {
         "total_records": int(total_records),
         "avg_daily_records": int(avg_daily_records),
-        "total_suspicious": int(total_suspicious),
         "num_days": len(df["crawl_date"].unique())
     }
 
@@ -160,10 +156,6 @@ def _calculate_metrics(df: pd.DataFrame) -> dict:
 def build_dashboard(df, output_path="dashboard_quality.html"):
     # Columns
     missing_cols = [c for c in df.columns if c.startswith("missing_")]
-    suspicious_cols = [
-        c for c in df.columns if c.startswith("suspicious_") 
-        or c.startswith("invalid_")
-    ]
 
     # Calculate metrics
     metrics = _calculate_metrics(df)
@@ -172,7 +164,6 @@ def build_dashboard(df, output_path="dashboard_quality.html"):
     total_records_chart = _render_total_records_chart(df)
     
     missing_chart_grid = _build_chart_grid(df, missing_cols)
-    suspicious_chart_grid = _build_chart_grid(df, suspicious_cols)
 
     # Combine into HTML
     html = f"""
@@ -504,15 +495,6 @@ def build_dashboard(df, output_path="dashboard_quality.html"):
                     <div class="metric-subtitle">Trung bình {metrics['avg_daily_records']:,} tin/ngày</div>
                 </div>
 
-                <div class="metric-card danger">
-                    <div class="metric-header">
-                        <div class="metric-icon">🚨</div>
-                        <div class="metric-label">Dữ liệu nghi ngờ</div>
-                    </div>
-                    <div class="metric-value">{metrics['total_suspicious']:,}</div>
-                    <div class="metric-subtitle">Cần kiểm tra</div>
-                </div>
-
                 <div class="metric-card primary">
                     <div class="metric-header">
                         <div class="metric-icon">📅</div>
@@ -547,19 +529,6 @@ def build_dashboard(df, output_path="dashboard_quality.html"):
                 </div>
                 <div class="chart-grid">
                     {missing_chart_grid}
-                </div>
-            </section>
-
-            <section class="section">
-                <div class="section-header">
-                    <div class="section-icon">🔍</div>
-                    <div>
-                        <h2>Suspicious Data</h2>
-                        <p class="section-description">Theo dõi các trường dữ liệu nghi ngờ hoặc không hợp lệ</p>
-                    </div>
-                </div>
-                <div class="chart-grid">
-                    {suspicious_chart_grid}
                 </div>
             </section>
 
