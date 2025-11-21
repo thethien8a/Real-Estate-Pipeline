@@ -34,6 +34,9 @@ VD: `START_PAGE = 0` và `END_PAGE = 1` tức là sẽ thu thập từ trang 0 �
 - `src/load/load_staging.py`: chạy load data vào Supabase
 - `src/transform/main.py`: chạy transform data từ Bronze sang Silver
 
+## 7. 1 vài sửa đổi khi chạy ở local:
+- ở src/extract/crawl.py  xóa t dòng: browser_executable_path="/opt/hostedtoolcache/setup-chrome/chrome/stable/x64/chrome"
+- 
 ## 7. Cách chạy pipeline
 ```bat
 B1: python src/extract/crawl.py
