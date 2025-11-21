@@ -47,7 +47,7 @@ def _parse_datetime(value: str):
         return None
 
 
-def deduplicate_latest(rows, id_field: str = "post_id", timestamp_field: str = "store_staging_at"):
+def deduplicate_latest(rows, id_field: str = "subpage_url", timestamp_field: str = "store_staging_at"):
     """
     Loại bỏ các bản ghi trùng theo id_field, chỉ giữ bản ghi có timestamp_field mới nhất.
     """
