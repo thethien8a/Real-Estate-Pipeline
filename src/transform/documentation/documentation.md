@@ -1,4 +1,4 @@
-# Tài liệu chuyển đổi dữ liệu (Update 18/11/2025)
+# Tài liệu chuyển đổi dữ liệu (Update 20/11/2025)
 
 ## 1. Chuyển đổi dữ liệu từ staging sang silver
 
@@ -141,10 +141,10 @@ Tạo 2 cột:
 
 ---
 
-#### 13. Cột `project_name`
+#### 13. Cột `project_status`
 
 Kiểm tra theo thứ tự từ trên xuống, match cái nào lấy cái đó:
-<!-- 
+
 Của Nhung
 | Điều kiện | Kết quả |
 |-----------|---------|
@@ -155,7 +155,7 @@ Của Nhung
 | "sắp mở bán" | "sắp mở bán" |
 | "cắt nóc" hoặc "đang xây dựng" | "đang xây dựng" |
 | "dự kiến" | "dự kiến" |
-| NULL | "không xác định | -->
+| NULL | "không xác định |
 
 Của Thiện
 + Với các TH dài dài khó xác định thì ta sẽ cho vào `error_table` để xly thủ công sau
@@ -279,69 +279,3 @@ Dựa trên tài liệu chuyển đổi dữ liệu và cấu trúc staging tabl
    - Cập nhật ngày xử lý mới nhất vào `silver.last_transform_date`
 
 ---
-
-## 4. Cấu trúc các bảng bổ trợ trong Silver Layer
-
-### 4.1. Bảng `last_transform_date`
-
-**Mục đích:** Lưu trữ ngày cuối cùng đã xử lý dữ liệu từ staging
-
-**Cấu trúc:**
-| Tên cột | Kiểu dữ liệu | Mô tả |
-|---------|-------------|-------|
-| last_date | TIMESTAMP | Ngày cuối cùng trong staging đã được xử lý |
-
-**Đặc điểm:**
-- Bảng này chỉ chứa 1 dòng dữ liệu
-- Được cập nhật sau mỗi lần xử lý thành công
-
-### 4.2. Bảng `error_table`
-
-**Mục đích:** Lưu trữ các bản ghi bị lỗi trong quá trình transform
-
-**Cấu trúc:**
-
-**Cột gốc từ staging (23 cột):**
-1. `main_page_url` - URL trang chính
-2. `subpage_url` - URL trang chi tiết
-3. `title` - Tiêu đề tin đăng
-4. `address` - Địa chỉ gốc
-5. `price` - Giá gốc
-6. `area` - Diện tích gốc
-7. `house_direction` - Hướng nhà
-8. `balcony_direction` - Hướng ban công
-9. `facade` - Mặt tiền
-10. `legal` - Pháp lý
-11. `furniture` - Nội thất
-12. `number_bedroom` - Số phòng ngủ
-13. `number_bathroom` - Số phòng tắm
-14. `number_floor` - Số tầng
-15. `way_in` - Lối vào
-16. `project_name` - Tên dự án
-17. `project_status` - Trạng thái dự án
-18. `project_investor` - Chủ đầu tư
-19. `post_id` - ID tin đăng
-20. `post_start_time` - Thời gian bắt đầu đăng
-21. `post_end_time` - Thời gian kết thúc đăng
-22. `post_type` - Loại tin đăng
-23. `source` - Nguồn tin
-
-**Cột bổ trợ (4 cột):**
-24. `crawled_at` - Thời gian crawl dữ liệu
-25. `error_cols` - TEXT - Lưu các cột mà dữ liệu bị lỗi (ví dụ: "price,area,facade")
-26. `retry_status` - VARCHAR(20) - Trạng thái xử lý lại:
-   - `pending`: Chờ xử lý lại (mặc định)
-   - `processing`: Đang xử lý lại
-   - `resolved`: Đã xử lý thành công
-   - `failed`: Xử lý lại thất bại
-27. `error_message` - TEXT - Mô tả chi tiết lỗi xảy ra
-28. `created_at` - TIMESTAMP - Thời gian record lỗi được tạo
-
-**Tổng cộng: 29 cột**
-
-**Luồng xử lý lỗi:**
-1. Khi phát hiện lỗi trong quá trình transform, record sẽ được chuyển vào `error_table`
-2. `error_cols` sẽ lưu danh sách các cột bị lỗi
-3. `retry_status` mặc định là `pending`
-4. Có thể xử lý lại các record lỗi thủ công hoặc tự động
-5. Khi xử lý lại thành công, cập nhật `retry_status` thành `resolved`

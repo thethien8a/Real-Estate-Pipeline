@@ -1,11 +1,87 @@
 import pandas as pd
 import re
 import logging
-from datetime import datetime
-
+import unicodedata
+from datetime import datetime, timezone, date
 logger = logging.getLogger(__name__)
 
 class Transformators:
+    STATUS_STAGE_PATTERNS = [
+        ('Đã bàn giao', [
+            'da ban giao',
+            'da co so hong',
+            'da ban giao toa',
+            'da ban giao thap',
+            'da ban giao giai doan',
+            'da ban giao phan khu',
+            'da xay dung hoan thien'
+        ]),
+        ('Bàn giao', [
+            'ban giao nam',
+            'ban giao thang',
+            'ban giao quy',
+            'ban giao vao',
+            'ban giao ngay',
+            'ban giao toa',
+            'ban giao toan',
+            'ban giao giai doan',
+            'ban giao trong',
+            'sap ban giao',
+            'chuan bi ban giao',
+            'dang ban giao'
+        ]),
+        ('Đang bán', [
+            'dang ban',
+            'dang mo ban',
+            'ban het',
+            'ban toan bo',
+            'ban gio hang',
+            'ban nhung can cuoi',
+            'dang ban phan khu',
+            'dang ban toa'
+        ]),
+        ('Mở bán', [
+            'mo ban',
+            'ra mat thap',
+            'ra mat du an',
+            'mo ban dot',
+            'mo ban giai doan',
+            'mo ban gio hang',
+            'ra mat khu'
+        ]),
+        ('Nhận booking', [
+            'nhan booking',
+            'nhan dat cho',
+            'giu cho',
+            'dat cho',
+            'nhan giu cho'
+        ]),
+        ('Cất nóc', [
+            'cat noc',
+            'sap cat noc'
+        ]),
+        ('Khởi công', [
+            'khoi cong',
+            'dong tho'
+        ]),
+        ('thi công', [
+            'thi cong',
+            'thi cong tro lai',
+            'dang thi cong'
+        ])
+    ]
+
+    PREPARATION_KEYWORDS = [
+        'du kien',
+        'chuan bi',
+        'ra mat trong',
+        'dang cap nhat',
+        'sap ra mat',
+        'sap mo ban',
+        'sap khoi cong',
+        'sap trien khai'
+    ]
+
     def __init__(self):
         pass
     
@@ -26,50 +102,41 @@ class Transformators:
         Khu vực cụ thể, Thôn/Tổ dân phố, Phường/Xã, Quận/Huyện, Tỉnh/Thành phố
         """
         result = {
-            'khu_vuc_cu_the': 'không xác định',
-            'thon_to_dan_pho': 'không xác định',
-            'phuong_xa': 'không xác định',
-            'quan_huyen': 'không xác định',
-            'tinh_thanh_pho': 'không xác định',
-            'is_error': False
+            'khu_vuc_cu_the': 'Không xác định',
+            'thon_to_dan_pho': 'Không xác định',
+            'phuong_xa': 'Không xác định',
+            'quan_huyen': 'Không xác định',
+            'tinh_thanh_pho': 'Không xác định',
         }
         
-        try:
-            if not address or address.strip() == '':
-                result['is_error'] = True
-                return result
-            
-            # Tách theo dấu phẩy
-            parts = [p.strip().title() for p in address.split(',')]
-            num_parts = len(parts)
-            
-            if num_parts <= 2 or num_parts > 5:
-                result['is_error'] = True
-                return result
-            
-            result['tinh_thanh_pho'] = parts[-1]
-            result['quan_huyen'] = parts[-2]
-            result['phuong_xa'] = parts[-3]
-            
-            # Xử lý các trường hợp đặc biệt
-            if num_parts == 4:
-                # TH1: "Đường Nguyễn Văn Linh, Liên Hà, Đông Anh, Hà Nội"
-                if 'đường' in parts[0].lower():
-                    result['thon_to_dan_pho'] = parts[0]
-                # TH2: "Vinhomes Golden City, Hòa Nghĩa, Dương Kinh, Hà Nội"
-                else:
-                    result['khu_vuc_cu_the'] = parts[0]
-
-            elif num_parts == 5:
-                # "Nhà An Khê, Lỗ Khê, Liên Hà, Đông Anh, Hà Nội"
+        if not address or address.strip() == '':
+            raise ValueError("Address is required")
+        
+        # Tách theo dấu phẩy
+        parts = [p.strip().title() for p in address.split(',')]
+        num_parts = len(parts)
+        
+        if num_parts <= 2 or num_parts > 5:
+            raise ValueError("Invalid address format")
+        
+        result['tinh_thanh_pho'] = parts[-1]
+        result['quan_huyen'] = parts[-2]
+        result['phuong_xa'] = parts[-3]
+        
+        # Xử lý các trường hợp đặc biệt
+        if num_parts == 4:
+            # TH1: "Đường Nguyễn Văn Linh, Liên Hà, Đông Anh, Hà Nội"
+            if 'đường' in parts[0].lower():
+                result['thon_to_dan_pho'] = parts[0]
+            # TH2: "Vinhomes Golden City, Hòa Nghĩa, Dương Kinh, Hà Nội"
+            else:
                 result['khu_vuc_cu_the'] = parts[0]
-                result['thon_to_dan_pho'] = parts[1]
+
+        elif num_parts == 5:
+            # "Nhà An Khê, Lỗ Khê, Liên Hà, Đông Anh, Hà Nội"
+            result['khu_vuc_cu_the'] = parts[0]
+            result['thon_to_dan_pho'] = parts[1]
                 
-                
-        except Exception as e:
-            logger.error(f"Error parsing address '{address}': {e}")
-            result['is_error'] = True
-            
         return result
     
     @staticmethod
@@ -81,104 +148,93 @@ class Transformators:
         - "50 triệu" → 50/area_m2
         - "5 triệu/m²" → 5
         """
-        try:
-            if not price or not area_m2 or area_m2 <= 0:
-                return None
-                
-            price_str = str(price).lower().strip()
+        if not price or not area_m2 or area_m2 <= 0:
+            return -1
             
-            # Thỏa thuận
-            if 'thỏa thuận' in price_str or 'thoả thuận' in price_str:
-                return None
-            
-            # Thay dấu phẩy thành dấu chấm
-            price_str = price_str.replace(',', '.')
-            
-            # Trích xuất số
-            number = re.search(r'[\d.]+', price_str)
-            if not number:
-                return None
-            value = float(number.group())
-            
-            # Xử lý đơn vị
-            if 'tỷ' in price_str:
-                # Chuyển tỷ → triệu
-                value_in_million = value * 1000
-                return round(value_in_million / area_m2, 2)
-            elif 'triệu/m' in price_str:
-                # Đã là triệu/m²
-                return round(value, 2)
-            elif 'triệu' in price_str:
-                # Tổng giá triệu → chia cho diện tích
-                return round(value / area_m2, 2)
-            else:
-                return None
-                
-        except Exception as e:
-            logger.error(f"Error cleaning price '{price}': {e}")
-            return None
+        price_str = str(price).lower().strip()
+        
+        # Thỏa thuận
+        if 'thỏa thuận' in price_str or 'thoa thuan' in price_str:
+            return -1
+        
+        # Thay dấu phẩy thành dấu chấm
+        price_str = price_str.replace(',', '.')
+        
+        # Trích xuất số
+        number = re.search(r'[\d.]+', price_str)
+
+        if not number:
+            raise ValueError(f"Price '{price}' không phù hợp")
+        
+        value = float(number.group())
+        
+        # Xử lý đơn vị
+        if 'tỷ' in price_str:
+            # Chuyển tỷ → triệu
+            value_in_million = value * 1000
+            return round(value_in_million / area_m2, 2)
+        elif 'triệu/m' in price_str:
+            # Đã là triệu/m²
+            return round(value, 2)
+        elif 'triệu' in price_str:
+            # Tổng giá triệu → chia cho diện tích
+            return round(value / area_m2, 2)
+        else:
+            raise ValueError(f"Price '{price}' không phù hợp")
     
     @staticmethod
-    def clean_area(area):
+    def clean_area(area: str) -> float  :
         """
         Chuyển đổi area sang area_m2
         VD: "50.5m²" → 50.5
         """
-        try:
-            if not area:
-                return -1
-                
-            area_str = str(area).lower().strip()
+        if not area:
+            raise ValueError("Area is required")
             
-            # Loại bỏ m², m2
-            area_str = area_str.replace('m²', '').replace('m2', '').strip()
-            
-            # Thay dấu phẩy thành dấu chấm
-            area_str = area_str.replace('.', '').replace(',', '.')
-            
-            # Chuyển thành số
-            value = float(area_str)
-            return round(value, 2)
-            
-        except Exception as e:
-            logger.error(f"Error cleaning area '{area}': {e}")
-            return -1
+        area_str = area.lower().strip()
+        
+        # Loại bỏ m², m2
+        area_str = area_str.replace('m²', '').replace('m2', '').strip()
+        
+        # Thay dấu phẩy thành dấu chấm
+        area_str = area_str.replace('.', '').replace(',', '.')
+        
+        # Chuyển thành số
+        value = float(area_str)
+        return round(value, 2)
     
     @staticmethod
-    def clean_direction(direction):
+    def clean_direction(direction: str):
         """Chuẩn hóa hướng nhà/ban công"""
-        if not direction or str(direction).strip() == '':
-            return 'không xác định'
+        if not direction:
+            return 'Không xác định'
+        if '-' in direction:
+            direction = direction.replace('-', ' ')
+            # Loại bỏ khoảng trắng thừa
+            direction = ' '.join(direction.split())
         return str(direction).strip().title()
     
     @staticmethod
-    def clean_facade(facade):
+    def clean_facade(facade: str):
         """
         Xử lý mặt tiền
         VD: "5m" → 5.0, "5,5m" → 5.5
         """
-        try:
-            if not facade:
-                return -1
-                
-            facade_str = str(facade).lower().strip()
-            
-            # Loại bỏ 'm'
-            facade_str = facade_str.replace('m', '').strip()
-            
-            # Thay dấu phẩy thành dấu chấm
-            facade_str = facade_str.replace(',', '.')
-            
-            # Chuyển thành số
-            value = float(facade_str)
-            return round(value, 2)
-            
-        except Exception as e:
-            logger.error(f"Error cleaning facade '{facade}': {e}")
+        if not facade:
             return -1
+        
+        # Thay dấu phẩy thành dấu chấm
+        facade = facade.replace(',', '.')
+        
+        # Loại bỏ 'm'
+        facade = facade.replace('m', '').strip()
+        
+        # Chuyển thành số
+        value = float(facade)
+        return round(value, 2)
     
     @staticmethod
-    def clean_legal(legal):
+    def clean_legal(legal: str):
         """
         Tách legal thành 3 cột:
         - have_red_book: có sổ đỏ
@@ -188,150 +244,233 @@ class Transformators:
         result = {
             'have_red_book': 0,
             'have_pink_book': 0,
-            'have_sale_contract': 0
+            'have_sale_contract': 0,
+            'have_agreement_document': 0,
         }
         
-        try:
-            if not legal:
-                return result
-                
-            legal_str = str(legal).lower()
+        if not legal:
+            return result
             
-            if 'sổ đỏ' in legal_str or 'so do' in legal_str:
-                result['have_red_book'] = 1
-                
-            if 'sổ hồng' in legal_str or 'so hong' in legal_str:
-                result['have_pink_book'] = 1
-                
-            if 'hợp đồng mua bán' in legal_str or 'hop dong mua ban' in legal_str:
-                result['have_sale_contract'] = 1
-                
-        except Exception as e:
-            logger.error(f"Error cleaning legal '{legal}': {e}")
+        legal = legal.lower()
+        
+        has_any_legal = 0
+        
+        # Kiểm tra sổ đỏ
+        if any(keyword in legal for keyword in ['sổ đỏ', 'so do']):
+            result['have_red_book'] = 1
+            has_any_legal = 1
+      
+        # Kiểm tra sổ hồng
+        if any(keyword in legal for keyword in ['sổ hồng', 'so hong']):
+            result['have_pink_book'] = 1
+            has_any_legal = 1
+            
+        # Kiểm tra hợp đồng mua bán
+        if any(keyword in legal for keyword in ['hợp đồng mua bán', 'hop dong mua ban', 'hđmb', 'hdmb']):
+            result['have_sale_contract'] = 1
+            has_any_legal = 1
+            
+        # Kiểm tra văn bản thỏa thuận
+        if any(keyword in legal for keyword in ['văn bản', 'van ban', 'vbtt']):
+            result['have_agreement_document'] = 1
+            has_any_legal = 1
+        
+        # Đánh dấu lỗi nếu không có loại giấy tờ nào
+        if not has_any_legal:
+            raise ValueError("Giấy tờ cần xử lý thủ công")
             
         return result
     
     @staticmethod
-    def clean_furniture(furniture):
+    def clean_furniture(furniture: str):
         """
         Tách furniture thành 2 cột:
-        - have_full_furniture: có đầy đủ nội thất
-        - furniture_type: loại nội thất (basic, premium)
+        - furniture_type: full/basic
+        - has_premium_furniture: có nội thất cao cấp/Unknown
         """
         result = {
-            'have_full_furniture': 0,
-            'furniture_type': 'không xác định'
+            'furniture_type': 'Không xác định',
+            'has_premium_furniture': 0
         }
         
-        try:
-            if not furniture:
-                return result
-                
-            furniture_str = str(furniture).lower()
+        if not furniture:
+            return result
             
-            # Kiểm tra đầy đủ nội thất
-            if any(keyword in furniture_str for keyword in ['đầy đủ', 'full', 'hoàn thiện']):
-                result['have_full_furniture'] = 1
-                
-            # Phân loại loại nội thất
-            if any(keyword in furniture_str for keyword in ['cao cấp', 'sang trọng', 'premium', 'luxury']):
-                result['furniture_type'] = 'premium'
-            elif any(keyword in furniture_str for keyword in ['cơ bản', 'basic', 'đơn giản']):
-                result['furniture_type'] = 'basic'
-            elif result['have_full_furniture'] == 1:
-                result['furniture_type'] = 'full'
-                
-        except Exception as e:
-            logger.error(f"Error cleaning furniture '{furniture}': {e}")
+        furniture = furniture.lower()
+
+        has_full_furniture = 0
+        has_basic_furniture = 0
+        has_premium_furniture = 0
+        
+        # Kiểm tra đầy đủ nội thất
+        if any(keyword in furniture for keyword in ['đầy đủ', 'full', 'hoàn thiện']):
+            has_full_furniture = 1
+        if any(keyword in furniture for keyword in ['cơ bản', 'basic', 'đơn giản']):
+            has_basic_furniture = 1
+        
+        if has_full_furniture == 1 and has_basic_furniture == 1: # TH này là "đầy đủ nội thất cơ bản"
+            result['furniture_type'] = 'basic'
+        elif has_full_furniture == 1: # TH này là "đầy đủ nội thất"
+            result['furniture_type'] = 'full'
+        elif has_basic_furniture == 1: # TH này là "cơ bản"
+            result['furniture_type'] = 'basic'
+            
+        # Có nội thất cao cấp không
+        if any(keyword in furniture for keyword in ['cao cấp', 'sang trọng', 'premium', 'luxury']):
+            result['has_premium_furniture'] = 1
+            has_premium_furniture = 1
+        else:
+            result['has_premium_furniture'] = 0
+        
+        if has_full_furniture == 0 and has_basic_furniture == 0 and has_premium_furniture == 0:
+            raise ValueError("Nội thất cần xử lý thủ công")
             
         return result
     
     @staticmethod
-    def clean_number_field(value, unit_to_remove=''):
+    def clean_number_field(value: str):
         """
         Xử lý các trường số (số phòng ngủ, phòng tắm, tầng)
         VD: "3 phòng" → 3
         """
+        if not value:
+            return -1
+        
+        # Trích xuất số
+        number = re.search(r'\d+', value)
+        if number:
+            return int(number.group())
+        else:
+            raise ValueError(f"Error cleaning number field '{value}'")
+
+    @staticmethod
+    def clean_date_field(value):
+        """
+        Chuẩn hóa ngày dạng '1/12/2025' (dd/mm/yyyy) sang ISO string.
+        Nếu dữ liệu đã ở ISO format thì trả về nguyên trạng.
+        """
+        if value is None:
+            return None
+
+        if isinstance(value, datetime):
+            return value.isoformat()
+
+        if isinstance(value, date):
+            return value.isoformat()
+
+        if not isinstance(value, str):
+            logger.warning("Giá trị ngày không hợp lệ: %s", value)
+            return None
+
+        value_str = value.strip()
+        if not value_str:
+            return None
+
+        # Dữ liệu đã ở dạng ISO (ví dụ 2025-12-01 hoặc có 'T')
+        if "-" in value_str or "T" in value_str:
+            try:
+                normalized = value_str.replace("Z", "+00:00")
+                parsed = datetime.fromisoformat(normalized)
+                # Giữ nguyên kiểu gốc (date hay datetime)
+                return parsed.isoformat() if "T" in normalized or ":" in normalized else parsed.date().isoformat()
+            except ValueError:
+                logger.warning("Không parse được ISO date: %s", value)
+                return None
+
+        # Mặc định dữ liệu dạng dd/mm/yyyy (có thể thiếu số 0 bên trái)
         try:
-            if not value:
-                return -1
-                
-            value_str = str(value).lower().strip()
-            
-            # Loại bỏ đơn vị
-            if unit_to_remove:
-                value_str = value_str.replace(unit_to_remove.lower(), '').strip()
-            
-            # Trích xuất số
-            number = re.search(r'\d+', value_str)
-            if number:
-                return int(number.group())
-            return -1
-            
-        except Exception as e:
-            logger.error(f"Error cleaning number field '{value}': {e}")
-            return -1
+            parsed = datetime.strptime(value_str, "%d/%m/%Y")
+            return parsed.date().isoformat()
+        except ValueError:
+            logger.warning("Không parse được ngày dd/mm/yyyy: %s", value)
+            return None
     
     @staticmethod
-    def clean_way_in(way_in):
+    def clean_way_in(way_in: str):
         """
         Xử lý lối vào
         VD: "5m" → 5.0, '"5"' → 5.0
         """
-        try:
-            if not way_in:
-                return -1
-                
-            way_in_str = str(way_in).strip()
-            
-            # Loại bỏ dấu nháy kép
-            way_in_str = way_in_str.replace('"', '').replace("'", '')
-            
-            # Loại bỏ 'm'
-            way_in_str = way_in_str.replace('m', '').strip()
-            
-            # Thay dấu phẩy thành dấu chấm
-            way_in_str = way_in_str.replace(',', '.')
-            
-            # Chuyển thành số
-            value = float(way_in_str)
-            return round(value, 2)
-            
-        except Exception as e:
-            logger.error(f"Error cleaning way_in '{way_in}': {e}")
+        if not way_in:
             return -1
+        
+        way_in = way_in.lower()
+
+        if '"' in way_in:
+            way_in = way_in.replace('"', '')
+        if "'" in way_in:
+            way_in = way_in.replace("'", '')
+
+        if 'm' in way_in:
+            way_in = way_in.replace('m', '')
+
+        if ',' in way_in:
+            way_in = way_in.replace(',', '.')
+                    
+        way_in = way_in.strip()
+        
+        # Chuyển thành số
+        value = float(way_in)
+        return round(value, 2)
     
     @staticmethod
     def clean_project_name(project_name):
         """Chuẩn hóa tên dự án"""
         if not project_name or str(project_name).strip() == '':
-            return 'không xác định'
-        return str(project_name).strip()
+            return 'Không xác định'
+        cleaned = str(project_name).strip() 
+        cleaned = ' '.join(cleaned.split()) # Chuẩn hóa khoảng trắng
+        cleaned = cleaned.title() # Viết hoa chữ cái đầu mỗi từ
+        return cleaned
     
     @staticmethod
-    def clean_project_status(project_status):
+    def _normalize_project_status_text(project_status: str) -> str:
+        """Chuẩn hóa text project_status phục vụ phân loại stage"""
+        if not project_status:
+            return ''
+        normalized = unicodedata.normalize('NFD', str(project_status))
+        normalized = ''.join(ch for ch in normalized if unicodedata.category(ch) != 'Mn')
+        normalized = normalized.replace('Đ', 'D').replace('đ', 'd')
+        normalized = normalized.lower()
+        normalized = re.sub(r'[^a-z0-9/ ]', ' ', normalized)
+        normalized = ' '.join(normalized.split())
+        return normalized
+    
+    @staticmethod
+    def extract_project_status_stage(project_status: str) -> str:
         """
-        Transform project_status - Giữ nguyên giá trị hoặc xử lý thủ công
-        Các trường hợp dài, phức tạp → đưa vào error_table
+        Phân loại project_status thành stage tiếng Việt
         """
         if not project_status or project_status.strip() == '' or project_status == '(blank)':
-            return 'không xác định'
+            return 'Không xác định'
         
-        # Nếu status quá dài (>100 ký tự) → cần xử lý thủ công
-        if len(project_status) > 100:
-            raise ValueError("Project status quá dài, cần xử lý thủ công")
+        normalized = Transformators._normalize_project_status_text(project_status)
+        if not normalized or normalized == 'khong xac dinh':
+            return 'Không xác định'
         
-        return str(project_status).strip()
+        # Ưu tiên các trạng thái chuẩn bị để tránh trùng với các stage khác
+        if any(keyword in normalized for keyword in Transformators.PREPARATION_KEYWORDS):
+            return 'Chuẩn bị'
+        
+        for stage_label, keywords in Transformators.STATUS_STAGE_PATTERNS:
+            for keyword in keywords:
+                if keyword in normalized:
+                    return stage_label
+        
+        return 'Khác'
     
     @staticmethod
     def clean_project_investor(project_investor):
         """Chuẩn hóa chủ đầu tư - viết hoa tất cả chữ đầu"""
         if not project_investor or str(project_investor).strip() == '':
-            return 'không xác định'
-        return str(project_investor).strip().title()
+            return 'Không xác định'
+        cleaned = str(project_investor).strip() 
+        cleaned = ' '.join(cleaned.split()) 
+        cleaned = cleaned.title()
+        return cleaned
     
     @staticmethod
-    def extract_property_type(subpage_url):
+    def extract_property_type(subpage_url: str):
         """
         Tách loại bất động sản từ subpage_url
         """
@@ -350,133 +489,99 @@ class Transformators:
             'ban-trang-trai': 'Trang trại'
         }
         
-        try:
-            if not subpage_url:
-                raise ValueError("URL rỗng")
+        if not subpage_url:
+            raise ValueError("URL rỗng")
+            
+        url_lower = subpage_url.lower()
+        
+        for pattern, prop_type in property_types.items():
+            if pattern in url_lower:
+                return prop_type
                 
-            url_lower = subpage_url.lower()
-            
-            for pattern, prop_type in property_types.items():
-                if pattern in url_lower:
-                    return prop_type
-                    
-            # Không tìm thấy pattern nào
-            raise ValueError(f"URL không khớp với pattern nào: {subpage_url}")
-            
-        except Exception as e:
-            logger.error(f"Error extracting property type from '{subpage_url}': {e}")
-            raise
+        # Không tìm thấy pattern nào
+        raise ValueError(f"URL không khớp với pattern nào: {subpage_url}")
     
     @staticmethod
     def transform_row(row):
         """
         Transform toàn bộ row từ staging sang silver
         """
-        try:
-            cleaned_row = {}
-            error_cols = []
+        cleaned_row = {}
+        
+        # 1. Page number
+        cleaned_row["main_page_url"] = row.get('main_page_url')
+        cleaned_row['page_number'] = Transformators.extract_page_number(row.get('main_page_url'))
+        
+        subpage_url = row.get('subpage_url')
+        title = row.get('title')
             
-            # 1. Page number
-            cleaned_row['page_number'] = Transformators.extract_page_number(row.get('main_page_url'))
-            
-            # 2. Parse address
-            address_result = Transformators.parse_address(row.get('address'))
-            if address_result['is_error']:
-                error_cols.append('address')
-            cleaned_row['khu_vuc_cu_the'] = address_result['khu_vuc_cu_the']
-            cleaned_row['thon_to_dan_pho'] = address_result['thon_to_dan_pho']
-            cleaned_row['phuong_xa'] = address_result['phuong_xa']
-            cleaned_row['quan_huyen'] = address_result['quan_huyen']
-            cleaned_row['tinh_thanh_pho'] = address_result['tinh_thanh_pho']
-            
-            # 3. Clean area trước (cần cho việc tính price)
-            area_m2 = Transformators.clean_area(row.get('area'))
-            if area_m2 == -1:
-                error_cols.append('area')
-            cleaned_row['area_m2'] = area_m2
-            
-            # 4. Clean price (cần area_m2)
-            million_per_m2 = Transformators.clean_price(row.get('price'), area_m2)
-            if million_per_m2 is None and row.get('price'):
-                error_cols.append('price')
-            cleaned_row['million_per_m2'] = million_per_m2
-            
-            # 5. Directions
-            cleaned_row['house_direction'] = Transformators.clean_direction(row.get('house_direction'))
-            cleaned_row['balcony_direction'] = Transformators.clean_direction(row.get('balcony_direction'))
-            
-            # 6. Facade
-            facade = Transformators.clean_facade(row.get('facade'))
-            if facade == -1 and row.get('facade'):
-                error_cols.append('facade')
-            cleaned_row['facade'] = facade
-            
-            # 7. Legal
-            legal_result = Transformators.clean_legal(row.get('legal'))
-            cleaned_row.update(legal_result)
-            
-            # 8. Furniture
-            furniture_result = Transformators.clean_furniture(row.get('furniture'))
-            cleaned_row.update(furniture_result)
-            
-            # 9. Number fields
-            cleaned_row['number_bedroom'] = Transformators.clean_number_field(row.get('number_bedroom'), 'phòng')
-            if cleaned_row['number_bedroom'] == -1 and row.get('number_bedroom'):
-                error_cols.append('number_bedroom')
-                
-            cleaned_row['number_bathroom'] = Transformators.clean_number_field(row.get('number_bathroom'), 'phòng')
-            if cleaned_row['number_bathroom'] == -1 and row.get('number_bathroom'):
-                error_cols.append('number_bathroom')
-                
-            cleaned_row['number_floor'] = Transformators.clean_number_field(row.get('number_floor'), 'tầng')
-            if cleaned_row['number_floor'] == -1 and row.get('number_floor'):
-                error_cols.append('number_floor')
-            
-            # 10. Way in
-            way_in_m = Transformators.clean_way_in(row.get('way_in'))
-            if way_in_m == -1 and row.get('way_in'):
-                error_cols.append('way_in')
-            cleaned_row['way_in_m'] = way_in_m
-            
-            # 11. Project fields
-            cleaned_row['project_name'] = Transformators.clean_project_name(row.get('project_name'))
-            
-            try:
-                cleaned_row['project_status'] = Transformators.clean_project_status(row.get('project_status'))
-            except ValueError:
-                error_cols.append('project_status')
-                cleaned_row['project_status'] = 'không xác định'
-            
-            cleaned_row['project_investor'] = Transformators.clean_project_investor(row.get('project_investor'))
-            
-            # 12. Property type từ URL
-            try:
-                cleaned_row['loai_bat_dong_san'] = Transformators.extract_property_type(row.get('subpage_url'))
-            except:
-                error_cols.append('subpage_url')
-                cleaned_row['loai_bat_dong_san'] = 'không xác định'
-            
-            # 13. Giữ nguyên các cột khác
-            keep_cols = [
-                'main_page_url', 'subpage_url', 'title', 
-                'post_id', 'post_start_time', 'post_end_time', 'post_type',
-                'source', 'crawled_at'
-            ]
-            for col in keep_cols:
-                cleaned_row[col] = row.get(col, 'không xác định')
-            
-            # Nếu có lỗi → raise exception để đưa vào error_table
-            if error_cols:
-                raise ValueError(f"Lỗi tại các cột: {', '.join(error_cols)}")
-            
-            return cleaned_row, None
-            
-        except Exception as e:
-            error_message = str(e)
-            logger.error(f"Error transforming row: {error_message}")
-            return None, error_message
+        cleaned_row['subpage_url'] = subpage_url
+        cleaned_row['title'] = title
+        # 2. Parse address
+        address_result = Transformators.parse_address(row.get('address'))
+        cleaned_row['specific_area'] = address_result['khu_vuc_cu_the']
+        cleaned_row['hamlet_neighborhood'] = address_result['thon_to_dan_pho']
+        cleaned_row['ward_commune'] = address_result['phuong_xa']
+        cleaned_row['district'] = address_result['quan_huyen']
+        cleaned_row['province_city'] = address_result['tinh_thanh_pho']
+        
+        # 3. Clean area trước 
+        area_m2 = Transformators.clean_area(row.get('area'))
+        cleaned_row['area_m2'] = area_m2
+        
+        # 4. Clean price (cần area_m2)
+        million_per_m2 = Transformators.clean_price(row.get('price'), area_m2)
+        cleaned_row['million_per_m2'] = million_per_m2
+        
+        # 5. Directions
+        cleaned_row['house_direction'] = Transformators.clean_direction(row.get('house_direction'))
+        cleaned_row['balcony_direction'] = Transformators.clean_direction(row.get('balcony_direction'))
+        
+        # 6. Facade
+        facade = Transformators.clean_facade(row.get('facade'))
+        cleaned_row['facade'] = facade
+        
+        # 7. Legal
+        legal_result = Transformators.clean_legal(row.get('legal'))
+        cleaned_row['have_red_book'] = legal_result['have_red_book']
+        cleaned_row['have_pink_book'] = legal_result['have_pink_book']
+        cleaned_row['have_sale_contract'] = legal_result['have_sale_contract']
+        cleaned_row['have_agreement_document'] = legal_result['have_agreement_document']
+        
+        # 8. Furniture
+        furniture_result = Transformators.clean_furniture(row.get('furniture'))
+        cleaned_row['furniture_type'] = furniture_result['furniture_type']
+        cleaned_row['has_premium_furniture'] = furniture_result['has_premium_furniture']
+        
+        # 9. Number fields
+        cleaned_row['number_bedroom'] = Transformators.clean_number_field(row.get('number_bedroom'))
+        cleaned_row['number_bathroom'] = Transformators.clean_number_field(row.get('number_bathroom'))
+        cleaned_row['number_floor'] = Transformators.clean_number_field(row.get('number_floor'))
+        
+        # 10. Way in
+        way_in_m = Transformators.clean_way_in(row.get('way_in'))
+        cleaned_row['way_in_m'] = way_in_m
+        
+        # 11. Project fields
+        cleaned_row['project_name'] = Transformators.clean_project_name(row.get('project_name'))
 
+        cleaned_row['project_status_stage'] = Transformators.extract_project_status_stage(row.get('project_status'))
+        
+        cleaned_row['project_investor'] = Transformators.clean_project_investor(row.get('project_investor'))
+        
+        # Metadata từ staging
 
-if __name__ == "__main__":
-    test_address = "Lỗ Khê, Đông Anh, Hà Nội"
-    print(Transformators.parse_address(test_address))
+        cleaned_row['post_id'] = row.get('post_id')
+        cleaned_row['post_start_time'] = Transformators.clean_date_field(row.get('post_start_time'))
+        cleaned_row['post_end_time'] = Transformators.clean_date_field(row.get('post_end_time'))
+        cleaned_row['post_type'] = row.get('post_type')
+        
+        cleaned_row['source'] = row.get('source')
+        cleaned_row['store_staging_at'] = row.get('created_at')
+        cleaned_row["transformed_at"] = datetime.now(timezone.utc).isoformat()
+        
+        # 12. Property type từ URL
+        cleaned_row['loai_bat_dong_san'] = Transformators.extract_property_type(row.get('subpage_url'))
+        
+        return cleaned_row
+    
