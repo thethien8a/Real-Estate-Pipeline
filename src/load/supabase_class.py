@@ -1,7 +1,7 @@
 
 import os
 import logging
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Optional, Union
 from supabase import create_client, Client
 from supabase.client import ClientOptions
 from dotenv import load_dotenv

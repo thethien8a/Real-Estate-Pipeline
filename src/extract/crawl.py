@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from collections import defaultdict
 from datetime import datetime, timezone
 import nodriver as uc
 from utils import (
@@ -22,13 +23,14 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "https://batdongsan.com.vn"
 START = "/nha-dat-ban/"
+SUBPAGE_CHUNK_SIZE = 20
 
 async def start_browser():
     try:
         browser = await uc.start(
             headless=True,
             sandbox=False,
-            browser_executable_path="/opt/hostedtoolcache/setup-chrome/chrome/stable/x64/chrome", # Lấy cái này ở log github actions nhá
+            # browser_executable_path="/opt/hostedtoolcache/setup-chrome/chrome/stable/x64/chrome", # Lấy cái này ở log github actions nhá
             browser_args=CrawlConfig.BROWSER_ARGS
         )
         if not getattr(browser, "connection", None):
@@ -235,6 +237,26 @@ async def main():
         ]
 
         subpage_results_raw = await asyncio.gather(*subpage_tasks, return_exceptions=True)
+        chunk_enabled = len(all_subpage_refs) > SUBPAGE_CHUNK_SIZE
+        chunk_buffer = defaultdict(list)
+        chunk_counter = 0
+        chunk_index = 1
+
+        def flush_chunk():
+            nonlocal chunk_index
+            if not chunk_buffer:
+                return
+            subpage_in_chunk = sum(len(items) for items in chunk_buffer.values())
+            payload_chunk = build_main_page_payload(chunk_buffer)
+            save_results_to_csv(payload_chunk, suffix=f"_chunk_{chunk_index:02d}")
+            logger.info(
+                "Đã lưu chunk %s với %s subpage",
+                chunk_index,
+                subpage_in_chunk,
+            )
+            chunk_buffer.clear()
+            chunk_index += 1
+
         for result in subpage_results_raw:
             if isinstance(result, Exception):
                 logger.warning(f"Subpage task exception: {result}")
@@ -242,8 +264,16 @@ async def main():
                 parent_url = result.get("main_page_url")
                 if parent_url in main_page_results:
                     main_page_results[parent_url].append(result)
+                    if chunk_enabled:
+                        chunk_buffer[parent_url].append(result)
+                        chunk_counter += 1
+                        if chunk_counter % SUBPAGE_CHUNK_SIZE == 0:
+                            flush_chunk()
                 else:
                     logger.debug(f"Không tìm thấy main_page_url cho subpage: {result}")
+
+        if chunk_enabled and chunk_buffer:
+            flush_chunk()
 
         final_payload = build_main_page_payload(main_page_results)
         save_results_to_csv(final_payload)

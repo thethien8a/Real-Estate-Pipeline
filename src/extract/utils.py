@@ -275,12 +275,13 @@ async def extract_value_from_post_card(page, label: str, default: str = "") -> s
         return default
         
 
-def save_results_to_csv(results):
+def save_results_to_csv(results, suffix=None):
     RAW_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "raw"
     RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    output_path = RAW_DATA_DIR / f"batdongsan_raw_{timestamp}.csv"
+    suffix_part = suffix or ""
+    output_path = RAW_DATA_DIR / f"batdongsan_raw_{timestamp}{suffix_part}.csv"
 
     fieldnames = [
         "main_page_url",
