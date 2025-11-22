@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "https://batdongsan.com.vn"
 START = "/nha-dat-ban/"
-SUBPAGE_CHUNK_SIZE = 20
+
 
 async def start_browser():
     try:
@@ -237,7 +237,7 @@ async def main():
         ]
 
         subpage_results_raw = await asyncio.gather(*subpage_tasks, return_exceptions=True)
-        chunk_enabled = len(all_subpage_refs) > SUBPAGE_CHUNK_SIZE
+        chunk_enabled = len(all_subpage_refs) > CrawlConfig.SUBPAGE_CHUNK_SIZE
         chunk_buffer = defaultdict(list)
         chunk_counter = 0
         chunk_index = 1
@@ -267,7 +267,7 @@ async def main():
                     if chunk_enabled:
                         chunk_buffer[parent_url].append(result)
                         chunk_counter += 1
-                        if chunk_counter % SUBPAGE_CHUNK_SIZE == 0:
+                        if chunk_counter % CrawlConfig.SUBPAGE_CHUNK_SIZE == 0:
                             flush_chunk()
                 else:
                     logger.debug(f"Không tìm thấy main_page_url cho subpage: {result}")
