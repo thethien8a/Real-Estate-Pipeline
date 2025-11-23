@@ -25,6 +25,7 @@ BASE_URL = "https://batdongsan.com.vn"
 START = "/nha-dat-ban/"
 
 
+
 async def start_browser():
     try:
         browser = await uc.start(
