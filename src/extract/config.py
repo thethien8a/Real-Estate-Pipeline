@@ -7,13 +7,13 @@ class CrawlConfig:
     SUBPAGE_SEMAPHORE_LIMIT = 10
     
     # Trang bắt đầu thu thập
-    START_PAGE = 0
+    START_PAGE = 1100
     
     # Chunk size cho subpage
     SUBPAGE_CHUNK_SIZE = 200
     
     # Trang kết thúc thu thập
-    END_PAGE = 1
+    END_PAGE = 1150
     
     BROWSER_ARGS = [
     '--disable-dev-shm-usage',
