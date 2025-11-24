@@ -1,5 +1,8 @@
 name: Daily ETL 
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [ main ]
@@ -87,51 +90,76 @@ jobs:
         run: |
           python src/transform/main.py
 
-  # dashboard-staging:
-  #   needs: daily-etl
-  #   runs-on: ubuntu-latest
-  #   env:
-  #     SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-  #     SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
+  dashboard-bronze:
+    needs: daily-etl
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  #     - name: Set up Python
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: "3.12"
-  #         cache: "pip"
-  #         cache-dependency-path: "requirements/requirements.txt"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: "requirements/requirements.txt"
 
-  #     - name: Install dependencies
-  #       run: |
-  #         pip install --upgrade pip
-  #         pip install -r requirements/requirements.txt
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements/requirements.txt
 
-  #     - name: Build quality dashboard
-  #       run: python check_quality/dash_quality.py
+      - name: Build bronze quality dashboard
+        run: python check_quality/dash_quality.py
 
-  #     - name: Prepare dashboard
-  #       run: |
-  #         mkdir -p site
-  #         cp dashboard_quality.html site/index.html
+      - name: Prepare bronze dashboard artifact
+        run: |
+          mkdir -p site
+          cp dashboard_quality.html site/index.html
 
-  #     - name: Upload dashboard artifact
-  #       uses: actions/upload-pages-artifact@v3
-  #       with:
-  #         path: site
+      - name: Deploy bronze dashboard to Pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: site
+          publish_branch: bronze_quality
 
-  # deploy-dashboard-staging:
-  #   needs: dashboard-staging
-  #   permissions:
-  #     pages: write
-  #     id-token: write
-  #   environment:
-  #     name: github-pages
-  #     url: ${{ steps.deployment.outputs.page_url }}
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Deploy to GitHub Pages
-  #       id: deployment
-  #       uses: actions/deploy-pages@v4
+  dashboard-silver:
+    needs: transform-silver
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: "requirements/requirements.txt"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements/requirements.txt
+
+      - name: Build silver quality dashboard
+        run: python check_quality/dash_silver.py
+
+      - name: Prepare silver dashboard artifact
+        run: |
+          mkdir -p site-silver
+          cp dashboard_silver.html site-silver/index.html
+
+      - name: Deploy silver dashboard to Pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: site-silver
+          publish_branch: silver_quality
