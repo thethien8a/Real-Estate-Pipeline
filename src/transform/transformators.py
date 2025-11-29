@@ -119,7 +119,14 @@ class Transformators:
         if num_parts <= 2 or num_parts > 5:
             raise ValueError("Invalid address format")
         
-        result['tinh_thanh_pho'] = parts[-1]
+        if any(char.isdigit() for char in parts[-1]):
+            raise ValueError("Tỉnh/Thành phố không được chứa số.")
+
+        # Clean tinh_thanh_pho
+        tinh_thanh_pho = parts[-1].replace(".", "").lower().strip()
+        tinh_thanh_pho = tinh_thanh_pho.replace("thành phố", "").replace("tỉnh", "").replace("tp", "")
+        tinh_thanh_pho = tinh_thanh_pho.strip().title()
+        result['tinh_thanh_pho'] = tinh_thanh_pho
         result['quan_huyen'] = parts[-2]
         result['phuong_xa'] = parts[-3]
         
