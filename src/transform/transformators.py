@@ -133,7 +133,16 @@ class Transformators:
             raise ValueError("Quận không được chứa trong tỉnh/thành phố")
 
         result['tinh_thanh_pho'] = tinh_thanh_pho
-        result['quan_huyen'] = parts[-2]
+        
+        quan_huyen = parts[-2]
+        quan_huyen = quan_huyen.replace("Quận", "").replace("Huyện", "").replace("Q", "").replace("H", "")
+        quan_huyen = quan_huyen.strip().title()
+        if quan_huyen == "":
+            quan_huyen = "Không xác định"
+        elif "Phường" in quan_huyen:
+            raise ValueError("Phường không được chứa trong quận/huyện")
+            
+        result['quan_huyen'] = quan_huyen
         result['phuong_xa'] = parts[-3]
         
         # Xử lý các trường hợp đặc biệt
