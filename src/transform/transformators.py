@@ -128,9 +128,11 @@ class Transformators:
             # TH1: "Đường Nguyễn Văn Linh, Liên Hà, Đông Anh, Hà Nội"
             if 'đường' in parts[0].lower():
                 result['thon_to_dan_pho'] = parts[0]
+                result["khu_vuc_cu_the"] = "Không xác định"
             # TH2: "Vinhomes Golden City, Hòa Nghĩa, Dương Kinh, Hà Nội"
             else:
                 result['khu_vuc_cu_the'] = parts[0]
+                result["thon_to_dan_pho"] = "Không xác định"
 
         elif num_parts == 5:
             # "Nhà An Khê, Lỗ Khê, Liên Hà, Đông Anh, Hà Nội"
@@ -564,9 +566,7 @@ class Transformators:
         
         # 11. Project fields
         cleaned_row['project_name'] = Transformators.clean_project_name(row.get('project_name'))
-
-        cleaned_row['project_status_stage'] = Transformators.extract_project_status_stage(row.get('project_status'))
-        
+        cleaned_row['project_status_stage'] = Transformators.extract_project_status_stage(row.get('project_status'))      
         cleaned_row['project_investor'] = Transformators.clean_project_investor(row.get('project_investor'))
         
         # Metadata từ staging
