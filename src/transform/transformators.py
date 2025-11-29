@@ -126,6 +126,10 @@ class Transformators:
         tinh_thanh_pho = parts[-1].replace(".", "").lower().strip()
         tinh_thanh_pho = tinh_thanh_pho.replace("thành phố", "").replace("tỉnh", "").replace("tp", "")
         tinh_thanh_pho = tinh_thanh_pho.strip().title()
+
+        if tinh_thanh_pho == "":
+            tinh_thanh_pho = "Không xác định"
+            
         result['tinh_thanh_pho'] = tinh_thanh_pho
         result['quan_huyen'] = parts[-2]
         result['phuong_xa'] = parts[-3]
