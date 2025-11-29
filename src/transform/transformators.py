@@ -129,7 +129,9 @@ class Transformators:
 
         if tinh_thanh_pho == "":
             tinh_thanh_pho = "Không xác định"
-            
+        elif tinh_thanh_pho.contains("Quận"):
+            raise ValueError("Quận không được chứa trong tỉnh/thành phố")
+
         result['tinh_thanh_pho'] = tinh_thanh_pho
         result['quan_huyen'] = parts[-2]
         result['phuong_xa'] = parts[-3]
