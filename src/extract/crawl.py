@@ -31,7 +31,7 @@ async def start_browser():
         browser = await uc.start(
             headless=True,
             sandbox=False,
-            # browser_executable_path="/opt/hostedtoolcache/setup-chrome/chrome/stable/x64/chrome", # Lấy cái này ở log github actions nhá
+            browser_executable_path="/opt/hostedtoolcache/setup-chrome/chrome/stable/x64/chrome", # Lấy cái này ở log github actions nhá
             browser_args=CrawlConfig.BROWSER_ARGS
         )
         if not getattr(browser, "connection", None):
