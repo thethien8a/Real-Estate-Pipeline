@@ -129,7 +129,7 @@ class Transformators:
 
         if tinh_thanh_pho == "":
             tinh_thanh_pho = "Không xác định"
-        elif tinh_thanh_pho.contains("Quận"):
+        elif "Quận" in tinh_thanh_pho:
             raise ValueError("Quận không được chứa trong tỉnh/thành phố")
 
         result['tinh_thanh_pho'] = tinh_thanh_pho
@@ -197,7 +197,7 @@ class Transformators:
             # Chuyển tỷ → triệu
             value_in_million = value * 1000
             return round(value_in_million / area_m2, 2)
-        elif 'triệu/m' in price_str:
+        elif 'triệu/m²' in price_str:
             # Đã là triệu/m²
             return round(value, 2)
         elif 'triệu' in price_str:
@@ -607,3 +607,6 @@ class Transformators:
         
         return cleaned_row
     
+
+if __name__ == '__main__':
+    print(Transformators.parse_address("Phường 11, Quận 1, Thành phố Hồ Chí Minh"))

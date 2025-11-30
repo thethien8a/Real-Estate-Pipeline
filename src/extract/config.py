@@ -13,7 +13,7 @@ class CrawlConfig:
     SUBPAGE_CHUNK_SIZE = 200
     
     # Trang kết thúc thu thập
-    END_PAGE = 2
+    END_PAGE = 1
     
     BROWSER_ARGS = [
     '--disable-dev-shm-usage',
