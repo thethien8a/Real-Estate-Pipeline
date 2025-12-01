@@ -90,44 +90,44 @@ jobs:
         run: |
           python src/transform/main.py
 
-  publish-dashboards:
-    needs: transform-silver
-    runs-on: ubuntu-latest
-    env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  # publish-dashboards:
+  #   needs: transform-silver
+  #   runs-on: ubuntu-latest
+  #   env:
+  #     SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  #     SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: "pip"
-          cache-dependency-path: "requirements/requirements.txt"
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: "3.12"
+  #         cache: "pip"
+  #         cache-dependency-path: "requirements/requirements.txt"
 
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements/requirements.txt
+  #     - name: Install dependencies
+  #       run: |
+  #         pip install --upgrade pip
+  #         pip install -r requirements/requirements.txt
 
-      - name: Build bronze quality dashboard
-        run: python check_quality/dash_quality.py
+  #     - name: Build bronze quality dashboard
+  #       run: python check_quality/dash_quality.py
 
-      - name: Build silver quality dashboard
-        run: python check_quality/dash_silver.py
+  #     - name: Build silver quality dashboard
+  #       run: python check_quality/dash_silver.py
 
-      - name: Prepare combined dashboard site
-        run: |
-          mkdir -p site/bronze site/silver
-          cp dashboard_quality.html site/bronze/index.html
-          cp dashboard_silver.html site/silver/index.html
-          touch site/.nojekyll
+  #     - name: Prepare combined dashboard site
+  #       run: |
+  #         mkdir -p site/bronze site/silver
+  #         cp dashboard_quality.html site/bronze/index.html
+  #         cp dashboard_silver.html site/silver/index.html
+  #         touch site/.nojekyll
 
-      - name: Deploy dashboards to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: site
-          publish_branch: gh-pages
+  #     - name: Deploy dashboards to GitHub Pages
+  #       uses: peaceiris/actions-gh-pages@v4
+  #       with:
+  #         github_token: ${{ secrets.GITHUB_TOKEN }}
+  #         publish_dir: site
+  #         publish_branch: gh-pages
