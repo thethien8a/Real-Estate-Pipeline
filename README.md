@@ -1,6 +1,12 @@
 # KIẾN TRÚC DỰ ÁN
 <img width="4460" height="1624" alt="ETL PIPELINE" src="https://github.com/user-attachments/assets/d611021c-bd0e-4a6f-b379-663ab2e40055" />
 
+# Dashboard 1
+<img width="1324" height="742" alt="image" src="https://github.com/user-attachments/assets/cc6a5a94-7c0a-48a7-b2b0-eb08f9b169e8" />
+
+# Dashboard 2
+<img width="1198" height="672" alt="image" src="https://github.com/user-attachments/assets/71b5a659-b32e-4030-97c4-b62cdc179740" />
+
 # CÁCH CHẠY PIPELINE Ở LOCAL
 
 ## 1. Tạo file .env ở thư mục gốc với nội dung như sau:
